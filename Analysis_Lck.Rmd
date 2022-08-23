@@ -3,7 +3,6 @@ title: "Analysis of TCR repertoires of LckWT, LckCA and LckCA/KR mice"
 author: "Veronika Niederlova"
 date: "8/23/2022"
 output: rmdformats::material
-
 ---
 
 
@@ -35,9 +34,39 @@ ggtheme <- function() {
 
 # Initial processing
 
+This document describes the analysis of TCR repertoires for the manuscript "Unique roles of coreceptor-bound LCK in helper and cytotoxic T cellsby Horkova et al. The analysis workflow included: 
+
+* sorting of CD4 and CD8 cells from lymph nodes and thymi of *Lck^WT^*, *Lck^CA^* and *Lck^CA/KR^* mice,
+* isolation of RNA using . This analysis starts with file `merged_TCR_repertoires.csv` which you can [download from Zenodo]( ############# ). This document was obtained after running the pRESTO 
 
 
+```{r}
+df <- read.csv("../../../../6_analysis_v02_with_two_new_libs/merged_repertoires.csv")
 
+df$X <- NULL
+
+merged_repertoires <- df %>% 
+  mutate(path = str_replace_all(string = path, c("new_lib_24/out.vdjca.clonotypes.TRA.txt= "lib24_S24_L001/out.vdjca.clonotypes.TRA.txt", 
+                                                 "new_lib_24/out.vdjca.clonotypes.TRB.txt= "lib24_S24_L001/out.vdjca.clonotypes.TRB.txt", 
+                                                 "new_lib_25/out.vdjca.clonotypes.TRA.txt= "lib25_S25_L001/out.vdjca.clonotypes.TRA.txt", 
+                                                 "new_lib_25/out.vdjca.clonotypes.TRB.txt= "lib25_S25_L001/out.vdjca.clonotypes.TRB.txt"))) %>% 
+  separate(path, into = c(NA,NA,"num_id",NA), sep = "/", remove = F) %>% 
+  separate(num_id, into = c("num_id",NA,NA), sep = "_") %>% 
+  mutate(num_id = str_replace(num_id, "lib",""))  %>% 
+  mutate(chain = substr(path,nchar(path)-6,nchar(path)-4)) %>% unique()
+
+
+merged_repertoires
+merged_repertoires %>% group_by(num_id, chain) %>% tally
+
+# Attach metadata sent for sequencing
+md <- read_excel("../../../../6_analysis_v02_with_two_new_libs/Niederlova_MiSeq_Sample_metadata.xlsx") %>% dplyr::select(1:12) %>% mutate(num_id = as.character(Sample_number), Sample_number = as.character(Sample_number))
+
+merged_repertoires <- left_join(merged_repertoires, md)
+
+write.csv(merged_repertoires, "merged_TCR_repertoires.csv")
+
+merged_repertoires
 # Count tables
 
 # Gene segment usage analysis
@@ -46,10 +75,9 @@ ggtheme <- function() {
 
 # PCA 
 
-##
+## 
 
-##
-
+## 
 
 # Diversity index
 
@@ -61,5 +89,13 @@ ggtheme <- function() {
 
 # Repertoire overlap
 
+## 
 
-##
+## 
+
+colnames(merged_repertoires)
+merged_repertoires_filt <- merged_repertoires %>% select(-nSeqFR1, -minQualFR1,-nSeqCDR1, -minQualCDR1, -nSeqFR2, -nSeqCDR2, -minQualCDR2,      -nSeqFR3, -minQualFR3)
+
+merged_repertoires %>% group_by(refPoints) %>% tally
+```
+
