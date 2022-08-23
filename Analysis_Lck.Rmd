@@ -1,0 +1,65 @@
+---
+title: "Analysis of TCR repertoires of LckWT, LckCA and LckCA/KR mice"
+author: "Veronika Niederlova"
+date: "8/23/2022"
+output: rmdformats::material
+
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, warning = FALSE, message = FALSE, error = TRUE, cache = TRUE)
+
+library(tidyverse)
+library(readr)
+library(readxl)
+library(cowplot)
+library(patchwork)
+library(immunarch)
+library(pheatmap)
+library(factoextra)
+
+ggtheme <- function() {
+  theme(
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    text = element_text(size = 10, colour = "black"),
+    legend.text = element_text(size = 10),
+    legend.key.size =  unit(10, units = "points")
+    
+  )
+}
+
+```
+
+
+# Initial processing
+
+
+
+
+# Count tables
+
+# Gene segment usage analysis
+
+# NKT analysis
+
+# PCA 
+
+##
+
+##
+
+
+# Diversity index
+
+# Top20 WT LN sequences
+
+## Summary plot
+
+## Heatmaps
+
+# Repertoire overlap
+
+
+##
