@@ -37,42 +37,456 @@ ggtheme <- function() {
 This document describes the analysis of TCR repertoires for the manuscript "Unique roles of coreceptor-bound LCK in helper and cytotoxic T cellsby Horkova et al. The analysis workflow included: 
 
 * sorting of CD4 and CD8 cells from lymph nodes and thymi of *Lck^WT^*, *Lck^CA^* and *Lck^CA/KR^* mice,
-* isolation of RNA using . This analysis starts with file `merged_TCR_repertoires.csv` which you can [download from Zenodo]( ############# ). This document was obtained after running the pRESTO 
+* isolation of RNA using 
+* preparation of TCR-enriched libraries using the [NEBNext® Mouse Immune Sequencing Kit](https://international.neb.com/products/e6330-nebnext-immune-sequencing-kit-mouse#Product%20Information_Reagents-Supplied)
+* sequencing the libraries on Illumina Miseq 300bp paired-end
+* demultiplexing reads in Illumina BaseSpace
+* processing fastq files using the recommended [pRESTO workflow](https://international.neb.com/-/media/nebus/files/nebnext-chart-pdfs/nebnext-immune-sequencing-data-analysis-workflow-mouse.pdf?rev=7f21b23a3ce444e3bc4dcd57282402ba&hash=C0AE101CBA6C31B2A897A207D9EA6A4D) on Galaxy with default parameters
+* aligning processed fastq files using [MIXCR](https://mixcr.readthedocs.io/en/develop/)
+
+. This analysis starts with file `merged_TCR_repertoires.csv` which you can [download from Zenodo]( ############# )
 
 
 ```{r}
-df <- read.csv("../../../../6_analysis_v02_with_two_new_libs/merged_repertoires.csv")
+df <- read.csv("merged_TCR_repertoires.csv")
 
-df$X <- NULL
-
-merged_repertoires <- df %>% 
-  mutate(path = str_replace_all(string = path, c("new_lib_24/out.vdjca.clonotypes.TRA.txt= "lib24_S24_L001/out.vdjca.clonotypes.TRA.txt", 
-                                                 "new_lib_24/out.vdjca.clonotypes.TRB.txt= "lib24_S24_L001/out.vdjca.clonotypes.TRB.txt", 
-                                                 "new_lib_25/out.vdjca.clonotypes.TRA.txt= "lib25_S25_L001/out.vdjca.clonotypes.TRA.txt", 
-                                                 "new_lib_25/out.vdjca.clonotypes.TRB.txt= "lib25_S25_L001/out.vdjca.clonotypes.TRB.txt"))) %>% 
-  separate(path, into = c(NA,NA,"num_id",NA), sep = "/", remove = F) %>% 
-  separate(num_id, into = c("num_id",NA,NA), sep = "_") %>% 
-  mutate(num_id = str_replace(num_id, "lib",""))  %>% 
-  mutate(chain = substr(path,nchar(path)-6,nchar(path)-4)) %>% unique()
-
-
-merged_repertoires
-merged_repertoires %>% group_by(num_id, chain) %>% tally
-
-# Attach metadata sent for sequencing
-md <- read_excel("../../../../6_analysis_v02_with_two_new_libs/Niederlova_MiSeq_Sample_metadata.xlsx") %>% dplyr::select(1:12) %>% mutate(num_id = as.character(Sample_number), Sample_number = as.character(Sample_number))
-
-merged_repertoires <- left_join(merged_repertoires, md)
-
-write.csv(merged_repertoires, "merged_TCR_repertoires.csv")
-
-merged_repertoires
 # Count tables
 
+
 # Gene segment usage analysis
+```
 
+# Analysis of NKT cells
+
+Next, we will identify gene segments that are typical for invariant NKT cells. These segments are TRAV11 and TRAJ18 for TRA and TRBV1, TRBV13-2 and TRBV29 for TRB. Please, note that some of the included TRB chains are used by conventional cells as well. 
+
+Counts of NKT gene segments:
+
+```{r}
 # NKT analysis
+merged_repertoires <- merged_repertoires %>% 
+  mutate(is_nkt = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11")) & (grepl(allJHitsWithScore, pattern = "TRAJ18")) |
+    (grepl(allVHitsWithScore, pattern = "TRBV13-2")) |
+      (grepl(allVHitsWithScore, pattern = "TRBV1\\*")) |
+      (grepl(allVHitsWithScore, pattern = "TRBV29"))  ,"yes","no")) %>% 
+  mutate(nkt_trav11_traj18 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no")) %>% mutate(nkt_trbv13_2 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRBV13-2")),"yes","no")) %>% mutate(nkt_trbv29 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRBV29")),"yes","no")) %>% mutate(nkt_trbv1 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRBV1\\*")),"yes","no"))
 
+merged_repertoires %>% group_by(num_id)
+```
+
+### All NKT
+
+```{r}
+
+# All NKT
+nkt_table <- merged_repertoires %>% 
+   filter(chain == "TRB") %>% 
+ mutate(new_name = paste(Exp, Organ, Cell_type, Mouse_strain)) %>% 
+  dplyr::select(new_name, cloneCount, is_nkt, num_id) %>% 
+  uncount(cloneCount) %>% 
+  group_by(num_id, is_nkt) %>% 
+    summarise(n = n()) %>% 
+mutate(freq = n / sum(n)) %>% dplyr::filter(is_nkt == "yes") %>% 
+  ungroup %>% 
+  left_join(md) %>% 
+  unique %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+nkt_table
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+## CD4
+nkt_table
+nkt_table %>% 
+  filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD4 TRB") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_all_nkt_trb_cd4.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_all_nkt_trb_cd4.eps", width = 8, height = 8, units = "cm")
+
+  
+## CD8
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+nkt_table %>% 
+  filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD8 TRB") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_all_nkt_trb_cd8.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_all_nkt_trb_cd8.eps", width = 8, height = 8, units = "cm")
+
+
+## TRA
+
+# All NKT
+nkt_table <- merged_repertoires %>% 
+   filter(chain == "TRA") %>% 
+ mutate(new_name = paste(Exp, Organ, Cell_type, Mouse_strain)) %>% 
+  dplyr::select(new_name, cloneCount, is_nkt, num_id) %>% 
+  uncount(cloneCount) %>% 
+  group_by(num_id, is_nkt) %>% 
+    summarise(n = n()) %>% 
+mutate(freq = n / sum(n)) %>% dplyr::filter(is_nkt == "yes") %>% 
+  ungroup %>% 
+  left_join(md) %>% 
+  unique %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+nkt_table
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+## CD4
+nkt_table %>% 
+  filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD4 TRA") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_all_nkt_tra_cd4.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_all_nkt_tra_cd4.eps", width = 8, height = 8, units = "cm")
+
+## CD8
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+nkt_table %>% 
+  filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD8 TRA") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,1)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_all_nkt_tra_cd8.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_all_nkt_tra_cd8.eps", width = 8, height = 8, units = "cm")
+
+```
+
+### TRAV11 TRAJ18
+
+```{r}
+# TRAV11 TRAJ18
+nkt_table <- merged_repertoires %>% 
+   filter(chain == "TRA") %>% 
+ mutate(new_name = paste(Exp, Organ, Cell_type, Mouse_strain)) %>% 
+  dplyr::select(new_name, cloneCount, nkt_trav11_traj18, num_id) %>% 
+  uncount(cloneCount) %>% 
+  group_by(num_id, nkt_trav11_traj18) %>% 
+    summarise(n = n()) %>% 
+mutate(freq = n / sum(n)) %>% dplyr::filter(nkt_trav11_traj18 == "yes") %>% 
+  ungroup %>% 
+  left_join(md) %>% 
+  unique %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+nkt_table
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+## CD4
+nkt_table %>% 
+  filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD4 TRA TRAV11 TRAJ18") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trav11_traj18_tra_cd4.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trav11_traj18_tra_cd4.eps", width = 8, height = 8, units = "cm")
+
+## CD8
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+## CD8
+nkt_table %>% 
+  filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD8 TRA TRAV11 TRAJ18") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,1)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trav11_traj18_tra_cd8.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trav11_traj18_tra_cd8.eps", width = 8, height = 8, units = "cm")
+```
+
+### TRBV13-2
+
+```{r}
+
+## TRB
+
+# TRBV13-2
+nkt_table <- merged_repertoires %>% 
+   filter(chain == "TRB") %>% 
+ mutate(new_name = paste(Exp, Organ, Cell_type, Mouse_strain)) %>% 
+  dplyr::select(new_name, cloneCount, nkt_trbv13_2, num_id) %>% 
+  uncount(cloneCount) %>% 
+  group_by(num_id, nkt_trbv13_2) %>% 
+    summarise(n = n()) %>% 
+mutate(freq = n / sum(n)) %>% dplyr::filter(nkt_trbv13_2 == "yes") %>% 
+  ungroup %>% 
+  left_join(md) %>% 
+  unique %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+nkt_table
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+## CD4
+nkt_table %>% 
+  filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD4 TRBV13-2") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trbv13_2_cd4.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trbv13_2_cd4.eps", width = 8, height = 8, units = "cm")
+
+## CD8
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+nkt_table %>% 
+  filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD8 TRBV13-2") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trbv13_2_cd8.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trbv13_2_cd8.eps", width = 8, height = 8, units = "cm")
+```
+
+### TRBV29
+
+```{r}
+# TRBV29
+nkt_table <- merged_repertoires %>% 
+   filter(chain == "TRB") %>% 
+ mutate(new_name = paste(Exp, Organ, Cell_type, Mouse_strain)) %>% 
+  dplyr::select(new_name, cloneCount, nkt_trbv29, num_id) %>% 
+  uncount(cloneCount) %>% 
+  group_by(num_id, nkt_trbv29) %>% 
+    summarise(n = n()) %>% 
+mutate(freq = n / sum(n)) %>% dplyr::filter(nkt_trbv29 == "yes") %>% 
+  ungroup %>% 
+  left_join(md) %>% 
+  unique %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+nkt_table
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+## CD4
+nkt_table %>% 
+  filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD4 TRBV29") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trbv29_cd4.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trbv29_cd4.eps", width = 8, height = 8, units = "cm")
+
+## CD8
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+nkt_table %>% 
+  filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD8 TRBV29") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trbv29_cd8.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trbv29_cd8.eps", width = 8, height = 8, units = "cm")
+```
+
+### TRBV1
+
+```{r}
+
+merged_repertoires %>% group_by(nkt_trbv1) %>% tally()
+
+# TRBV1
+nkt_table <- merged_repertoires %>% 
+   filter(chain == "TRB") %>% 
+ mutate(new_name = paste(Exp, Organ, Cell_type, Mouse_strain)) %>% 
+  dplyr::select(new_name, cloneCount, nkt_trbv1, num_id) %>% 
+  uncount(cloneCount) %>% 
+  group_by(num_id, nkt_trbv1) %>% 
+    summarise(n = n()) %>% 
+mutate(freq = n / sum(n)) %>% dplyr::filter(nkt_trbv1 == "yes") %>% 
+  ungroup %>% 
+  left_join(md) %>% 
+  unique %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+nkt_table
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+## CD4
+nkt_table %>% 
+  filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD4 TRBV1") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trbv1_cd4.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trbv1_cd4.eps", width = 8, height = 8, units = "cm")
+
+## CD8
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+nkt_table %>% 
+  filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Percentage of all chains") + 
+  ggtitle("CD8 TRBV1") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+ggsave("./final_fig/nkt/pct_nkt_trbv1_cd8.png", width = 8, height = 8, units = "cm")
+ggsave("./final_fig/nkt/pct_nkt_trbv1_cd8.eps", width = 8, height = 8, units = "cm")
+
+```
+
+```{r}
 # PCA 
 
 ## 
@@ -93,9 +507,6 @@ merged_repertoires
 
 ## 
 
-colnames(merged_repertoires)
-merged_repertoires_filt <- merged_repertoires %>% select(-nSeqFR1, -minQualFR1,-nSeqCDR1, -minQualCDR1, -nSeqFR2, -nSeqCDR2, -minQualCDR2,      -nSeqFR3, -minQualFR3)
 
-merged_repertoires %>% group_by(refPoints) %>% tally
 ```
 
