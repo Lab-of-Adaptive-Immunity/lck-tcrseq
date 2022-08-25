@@ -17,6 +17,7 @@ library(patchwork)
 library(immunarch)
 library(pheatmap)
 library(factoextra)
+library(kableExtra)
 
 ggtheme <- function() {
   theme(
@@ -32,6 +33,7 @@ binary <- function(x){
   x <- ifelse(x>0,1,0)
   return(x)
 }
+
 ```
 
 
@@ -61,10 +63,131 @@ head(md)
 # Count tables
 
 ```{r}
+counts_tra <- read_csv("count_table_tra2.csv")
+counts_trb <- read_csv("count_table_trb2.csv")
 
 ```
 
 ## Prop table without NKT without less than 5 counts
+
+
+# count table
+
+## TRB
+
+Nice table for excel
+
+```{r}
+md2_trb <- merged_repertoires %>% filter(chain == "TRB") %>% group_by(aaSeqCDR3) %>% slice_head(n = 1)
+
+excel_count_table_trb <- counts_trb %>% left_join(md2_trb %>% select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
+
+md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, Exp))  %>% select(num_id, new_name) %>% arrange(num_id)
+  
+colnames(excel_count_table_trb)[2:29] <- c(
+  "CD8 Lymph nodes WT Exp01",
+"CD8 Thymus WT Exp01",
+"CD4 Thymus CA Exp03",
+"CD8 Lymph nodes WT Exp03",
+"CD4 Lymph nodes CAKR Exp03",
+"CD8 Lymph nodes CA Exp03",
+"CD4 Thymus WT Exp02",
+"CD8 Lymph nodes CA Exp02",
+"CD8 Thymus CA Exp03",
+"CD4 Lymph nodes CAKR Exp02",
+"CD4 Lymph nodes CA Exp02",
+"CD4 Lymph nodes WT Exp03",
+"CD4 Thymus CAKR Exp03",
+"CD8 Thymus WT Exp02",
+"CD8 Lymph nodes CAKR Exp02",
+"CD4 Thymus CAKR Exp02",
+"CD4 Thymus CA Exp01",
+"CD8 Thymus CAKR Exp03",
+"CD8 Thymus CAKR Exp02",
+"CD8 Lymph nodes WT Exp02",
+"CD4 Lymph nodes CA Exp01",
+"CD4 Thymus WT Exp03",
+"CD8 Lymph nodes CAKR Exp03",
+"CD4 Lymph nodes CA Exp03",
+"CD4 Lymph nodes WT Exp02",
+"CD8 Thymus WT Exp03",
+"CD4 Thymus CAKR Exp01",
+"CD8 Thymus CA Exp01")
+
+excel_count_table_trb2 <- excel_count_table_trb %>% dplyr::select(1, 31, 32, 30, 33, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+
+excel_count_table_trb3 <- excel_count_table_trb2 %>% mutate(nkt_trav11_traj18 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no"))
+
+count_table_trb4 <- as.matrix(excel_count_table_trb3[,6:33])
+rownames(count_table_trb4) <- excel_count_table_trb3$aaSeqCDR3
+
+trb4_norm <- scale(count_table_trb4, center=FALSE, scale=colSums(count_table_trb4))
+
+prop.table.trb <- cbind(trb4_norm, excel_count_table_trb %>% select(-starts_with("CD")) ) 
+
+prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 32, 30, 1:28)
+
+```
+
+## TRA
+
+```{r}
+md2_tra <- merged_repertoires %>% filter(chain == "TRA") %>% group_by(aaSeqCDR3) %>% slice_head(n = 1)
+
+excel_count_table_tra <- counts_tra %>% left_join(md2_tra %>% select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
+
+md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, Exp))  %>% select(num_id, new_name) %>% arrange(num_id)
+  
+colnames(excel_count_table_tra)[2:29] <- c(
+  "CD8 Lymph nodes WT Exp01",
+"CD8 Thymus WT Exp01",
+"CD4 Thymus CA Exp03",
+"CD8 Lymph nodes WT Exp03",
+"CD4 Lymph nodes CAKR Exp03",
+"CD8 Lymph nodes CA Exp03",
+"CD4 Thymus WT Exp02",
+"CD8 Lymph nodes CA Exp02",
+"CD8 Thymus CA Exp03",
+"CD4 Lymph nodes CAKR Exp02",
+"CD4 Lymph nodes CA Exp02",
+"CD4 Lymph nodes WT Exp03",
+"CD4 Thymus CAKR Exp03",
+"CD8 Thymus WT Exp02",
+"CD8 Lymph nodes CAKR Exp02",
+"CD4 Thymus CAKR Exp02",
+"CD4 Thymus CA Exp01",
+"CD8 Thymus CAKR Exp03",
+"CD8 Thymus CAKR Exp02",
+"CD8 Lymph nodes WT Exp02",
+"CD4 Lymph nodes CA Exp01",
+"CD4 Thymus WT Exp03",
+"CD8 Lymph nodes CAKR Exp03",
+"CD4 Lymph nodes CA Exp03",
+"CD4 Lymph nodes WT Exp02",
+"CD8 Thymus WT Exp03",
+"CD4 Thymus CAKR Exp01",
+"CD8 Thymus CA Exp01")
+
+excel_count_table_tra2 <- excel_count_table_tra %>% dplyr::select(1, 31, 32, 30, 33, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+
+excel_count_table_tra3 <- excel_count_table_tra2 %>% mutate(nkt_trav11_traj18 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no"))
+
+excel_count_table_tra4 <- excel_count_table_tra3 %>% filter(nkt_trav11_traj18 == "no")
+
+count_table_tra4 <- as.matrix(excel_count_table_tra4[,6:33])
+rownames(count_table_tra4) <- excel_count_table_tra4$aaSeqCDR3
+
+tra4_norm <- scale(count_table_tra4, center=FALSE, scale=colSums(count_table_tra4))
+
+prop.table.tra <- cbind(tra4_norm, excel_count_table_tra4 %>% select(-starts_with("CD")) ) 
+
+prop.table.tra2 <- prop.table.tra %>% dplyr::select(29, 31, 32, 30, 1:28)
+
+```
+
+# less than 5 removed
 
 ## CD4
 
@@ -130,9 +253,6 @@ keep_trb_cd8_sequences <- pull(keep_trb_cd8 %>% filter(keep == 1), aaSeqCDR3)
 
 ```
 
-
-
-
 ## TRB
 
 ```{r}
@@ -160,6 +280,7 @@ rownames(count_table_tra4_filter) <- excel_count_table_tra3_filter$aaSeqCDR3
 tra4_norm_filter <- scale(count_table_tra4_filter, center=FALSE, scale=colSums(count_table_tra4_filter))
 
 prop.table.tra_filter <- cbind(tra4_norm_filter, excel_count_table_tra3_filter %>% select(-starts_with("CD")) ) 
+
 
 prop.table.tra2_filter <- prop.table.tra_filter 
 ```

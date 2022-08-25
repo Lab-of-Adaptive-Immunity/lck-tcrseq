@@ -36,6 +36,11 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
+# Datasets and results
+*.png
+*.svg
+*.csv
+
 # R Environment Variables
 .Renviron
 
