@@ -18,6 +18,7 @@ library(immunarch)
 library(pheatmap)
 library(factoextra)
 library(kableExtra)
+library(SmartEDA)
 
 ggtheme <- function() {
   theme(
@@ -39,7 +40,7 @@ binary <- function(x){
 
 # Initial processing
 
-This document describes the analysis of TCR repertoires for the manuscript "Unique roles of coreceptor-bound LCK in helper and cytotoxic T cellsby Horkova et al. The analysis workflow included: 
+This document describes the analysis of TCR repertoires for the manuscript *"Unique roles of coreceptor-bound LCK in helper and cytotoxic T cells"* by Horkova et al. The analysis workflow included: 
 
 * sorting of CD4 and CD8 cells from lymph nodes and thymi of *Lck^WT^*, *Lck^CA^* and *Lck^CA/KR^* mice,
 * isolation of RNA using [RNA Clean & Concentrator-5 kit](https://www.integratedsci.com.au/product/rna-clean-and-concentrator-5-kit.html)
@@ -56,61 +57,44 @@ Raw data are deposited in the Sequence Read Archive (PRJNA872031). Processed fil
 * count tables with raw counts of CDR3 TRA and TRB sequences in each sample `count_table_tra.csv`, `"count_table_trb.csv"`
 * TRA and TRB repertoires prepared for processing with the Immunarch package `immdata_tra.rds`, `immdata_trb.rds`
 
+Let's read the required files:
+
 ```{r}
+#
 merged_repertoires <- read.csv("merged_TCR_repertoires.csv")
 md <- read.csv("metadata_Lck.csv")
 
-head(md)
-```
-
-# Count tables
-
-```{r}
 counts_tra <- read_csv("count_table_tra.csv")
 counts_tra$...1 <- NULL
 
 counts_trb <- read_csv("count_table_trb.csv")
 counts_trb$...1 <- NULL
 
-```
-
-## TRB
-
-Nice table for excel
-
-```{r}
-md2_trb <- merged_repertoires %>% filter(chain == "TRB") %>% group_by(aaSeqCDR3) %>% slice_head(n = 1)
-
-excel_count_table_trb <- counts_trb %>% left_join(md2_trb %>% select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
-
-md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, paste0("Exp0",Exp)))  %>% select(num_id, new_name) %>% arrange(num_id)
-
-order <- match(as.numeric(colnames(counts_trb)[2:29]), md_to_join$num_id)
-
-
-colnames(excel_count_table_trb)[2:29] <- pull(md_to_join, new_name)[order]
-
-excel_count_table_trb2 <- excel_count_table_trb %>% dplyr::select(1, 30:32, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
-
-excel_count_table_trb2
-colnames(excel_count_table_trb2)
-excel_count_table_trb3 <- excel_count_table_trb2 %>% mutate(nkt_trav11_traj18 = "no")
-
-count_table_trb4 <- as.matrix(excel_count_table_trb3[,5:32])
-rownames(count_table_trb4) <- excel_count_table_trb3$aaSeqCDR3
-
-
-trb4_norm <- scale(count_table_trb4, center=FALSE, scale=colSums(count_table_trb4))
-
-prop.table.trb <- cbind(trb4_norm, excel_count_table_trb %>% select(-starts_with("CD")) ) 
-colnames(prop.table.trb)
-prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 30, 32, 1:28)
 
 ```
 
-## TRA
+# Count tables
+
+We will start with processing of the file `merged_TCR_repertoires.csv`. This file contains outputs of MiXCR software, i.e., all the assembled CDR3 clonotypes, their counts in each sample, nucleotide and amino-acid sequences, all V, D and J alignments with scores, together with some meta-data. the column `num_id` contains info about the sample number, which we will frequently use to attach meta-data to sample numbers.
+
+Here, we summarize the variables in the file `merged_TCR_repertoires.csv`:
 
 ```{r}
+kable(ExpData(data=merged_repertoires, type=2)) %>%
+  kable_styling(full_width = F, font_size = 11, 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+First, we will generate summary count tables for TRA and TRB CDR3 sequences (these tables are provided as Supplementary table S1 in the manuscript). We will reorder the file so that there will be one column for each sample, and we will change the `num_id` of the samples to meaningful names. 
+
+```{r}
+count_table_tra <- merged_repertoires %>% 
+  dplyr::filter(chain == "TRA") %>% 
+  dplyr::select(aaSeqCDR3, num_id, cloneCount)
+
+count_table_tra2 <- count_table_tra %>% 
+  pivot_wider(names_from = num_id, values_from = cloneCount, values_fill = 0, values_fn = sum)
+
 md2_tra <- merged_repertoires %>% filter(chain == "TRA") %>% group_by(aaSeqCDR3) %>% slice_head(n = 1)
 
 excel_count_table_tra <- counts_tra %>% left_join(md2_tra %>% select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
@@ -121,6 +105,61 @@ order <- match(as.numeric(colnames(counts_tra)[2:29]), md_to_join$num_id)
 
 colnames(excel_count_table_tra)[2:29] <- pull(md_to_join, new_name)[order]
 excel_count_table_tra2 <- excel_count_table_tra %>% dplyr::select(1, 31, 32, 30, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+```
+
+Here, we show the resulting table for TRA:
+
+```{r}
+kable(excel_count_table_tra2 %>% head) %>%
+  kable_styling(full_width = F, font_size = 11, 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+```{r}
+count_table_trb <- merged_repertoires %>% 
+  dplyr::filter(chain == "TRB") %>% 
+  dplyr::select(aaSeqCDR3, num_id, cloneCount)
+
+count_table_trb2 <- count_table_trb %>% 
+  pivot_wider(names_from = num_id, values_from = cloneCount, values_fill = 0, values_fn = sum)
+
+md2_trb <- merged_repertoires %>% 
+  filter(chain == "TRB") %>% 
+  group_by(aaSeqCDR3) %>% 
+  slice_head(n = 1)
+
+excel_count_table_trb <- counts_trb %>% 
+  left_join(md2_trb %>% 
+              select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
+
+md_to_join <- md %>% 
+  mutate(new_name = paste(Cell_type, Organ, Mouse_strain, paste0("Exp0",Exp))) %>% 
+  select(num_id, new_name) %>% 
+  arrange(num_id)
+
+order <- match(as.numeric(colnames(counts_trb)[2:29]), md_to_join$num_id)
+
+colnames(excel_count_table_trb)[2:29] <- pull(md_to_join, new_name)[order]
+
+excel_count_table_trb2 <- excel_count_table_trb %>% 
+  dplyr::select(1, 30:32, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+```
+
+Here, we show the resulting table for TRB:
+
+```{r}
+kable(excel_count_table_trb2 %>% head) %>%
+  kable_styling(full_width = F, font_size = 11, 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+# Prop tables and less than 5
+
+Prop table TRA
+
+```{r}
 
 excel_count_table_tra3 <- excel_count_table_tra2 %>% mutate(nkt_trav11_traj18 = if_else(
     (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no"))
@@ -136,104 +175,31 @@ prop.table.tra <- cbind(tra4_norm, excel_count_table_tra4 %>% select(-starts_wit
 
 prop.table.tra2 <- prop.table.tra %>% dplyr::select(29, 31, 30, 32, 1:28)
 
+prop.table.tra2 %>% head
+ExpData(data=prop.table.tra2, type=2)
+
 ```
 
-## less than 5 removed
-
-## CD4
-
-Remove CDR3s with occurrence in less than 5 samples
+Prop table TRB
 
 ```{r}
+excel_count_table_trb3 <- excel_count_table_trb2 %>% 
+  mutate(nkt_trav11_traj18 = "no")
 
-# TRA
-keep_tra_cd4 <- excel_count_table_tra %>% 
-  mutate(nkt_trav11_traj18 = if_else(
-    (grepl(allVHitsWithScore, pattern = "TRAV11") | 
-    (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no")) %>% 
-  filter(nkt_trav11_traj18 == "no") %>% 
-  select(aaSeqCDR3, starts_with("CD4")) %>% 
-  mutate_at(vars(starts_with("CD4")), .funs = binary) 
- 
-keep_tra_cd4$sum <- rowSums((keep_tra_cd4 %>% select(-aaSeqCDR3)))
+count_table_trb4 <- as.matrix(excel_count_table_trb3[,5:32])
+rownames(count_table_trb4) <- excel_count_table_trb3$aaSeqCDR3
 
-keep_tra_cd4$keep <- ifelse(keep_tra_cd4$sum>4,1,0)
 
-keep_tra_cd4_sequences <- pull(keep_tra_cd4 %>% filter(keep == 1), aaSeqCDR3)
+trb4_norm <- scale(count_table_trb4, center=FALSE, scale=colSums(count_table_trb4))
 
-# TRB
-keep_trb_cd4 <- excel_count_table_trb %>% select(aaSeqCDR3, starts_with("CD4")) %>%  mutate_at(vars(starts_with("CD4")), .funs = binary) 
- 
-keep_trb_cd4$sum <- rowSums((keep_trb_cd4 %>% select(-aaSeqCDR3)))
+prop.table.trb <- cbind(trb4_norm, excel_count_table_trb %>% select(-starts_with("CD")) ) 
+colnames(prop.table.trb)
+prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 30, 32, 1:28)
 
-keep_trb_cd4$keep <- ifelse(keep_trb_cd4$sum>4,1,0)
 
-keep_trb_cd4_sequences <- pull(keep_trb_cd4 %>% filter(keep == 1), aaSeqCDR3)
-
+prop.table.trb2 %>% head
+ExpData(data=prop.table.trb2, type=2)
 ```
-
-## CD8
-
-Remove CDR3s with occurrence in less than 5 samples
-
-```{r}
-
-# TRA
-keep_tra_cd8 <- excel_count_table_tra %>% 
-  mutate(nkt_trav11_traj18 = if_else(
-    (grepl(allVHitsWithScore, pattern = "TRAV11") | 
-    (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no")) %>% 
-  filter(nkt_trav11_traj18 == "no") %>% 
-  select(aaSeqCDR3, starts_with("CD8")) %>% 
-  mutate_at(vars(starts_with("CD8")), .funs = binary) 
-
-keep_tra_cd8$sum <- rowSums((keep_tra_cd8 %>% select(-aaSeqCDR3)))
-
-keep_tra_cd8$keep <- ifelse(keep_tra_cd8$sum>4,1,0)
-
-keep_tra_cd8_sequences <- pull(keep_tra_cd8 %>% filter(keep == 1), aaSeqCDR3)
-
-# TRB
-keep_trb_cd8 <- excel_count_table_trb %>% select(aaSeqCDR3, starts_with("CD8")) %>%  mutate_at(vars(starts_with("CD8")), .funs = binary) 
- 
-keep_trb_cd8$sum <- rowSums((keep_trb_cd8 %>% select(-aaSeqCDR3)))
-
-keep_trb_cd8$keep <- ifelse(keep_trb_cd8$sum>4,1,0)
-
-keep_trb_cd8_sequences <- pull(keep_trb_cd8 %>% filter(keep == 1), aaSeqCDR3)
-
-```
-
-## TRB
-
-```{r}
-excel_count_table_trb3_filter <- excel_count_table_trb2  %>% filter(aaSeqCDR3 %in% keep_trb_cd4_sequences | aaSeqCDR3 %in% keep_trb_cd8_sequences) 
-
-count_table_trb4_filter <- as.matrix(excel_count_table_trb3_filter[,5:32])
-rownames(count_table_trb4_filter) <- excel_count_table_trb3_filter$aaSeqCDR3
-
-trb4_norm_filter <- scale(count_table_trb4_filter, center=FALSE, scale=colSums(count_table_trb4_filter))
-
-prop.table.trb_filter <- cbind(trb4_norm_filter, excel_count_table_trb3_filter %>% select(-starts_with("CD")) )
-```
-
-
-## TRA
-
-```{r}
-excel_count_table_tra3_filter <- excel_count_table_tra3  %>% filter(aaSeqCDR3 %in% keep_tra_cd4_sequences | aaSeqCDR3 %in% keep_tra_cd8_sequences) %>% filter(nkt_trav11_traj18 == "no")
-
-count_table_tra4_filter <- as.matrix(excel_count_table_tra3_filter[,5:32])
-rownames(count_table_tra4_filter) <- excel_count_table_tra3_filter$aaSeqCDR3
-
-tra4_norm_filter <- scale(count_table_tra4_filter, center=FALSE, scale=colSums(count_table_tra4_filter))
-
-prop.table.tra_filter <- cbind(tra4_norm_filter, excel_count_table_tra3_filter %>% select(-starts_with("CD")) )
-
-colnames(prop.table.tra_filter)
-```
-
-
 
 # Gene segment usage analysis
 
@@ -265,7 +231,8 @@ cd4_ln <- geneUsage(repFilter(immdata_tra,
                                  .query = list(Organ = exclude('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
 
 vis(cd4_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA LN CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
-getwd()
+
+
 #ggsave("./final_fig/gene_usage_new/cd4_ln_tra_just1segment.png", width = 60, height = 12, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd4_ln_tra_just1segment.svg", width = 60, height = 12, units = "cm")
 
@@ -292,7 +259,7 @@ vis(cd8_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$me
 
 ### TRB
 
-```{r fig.width=8, fig.height=8}
+```{r fig.width=8, fig.height=4}
 ### Thymus
 
 cd4_thymus <- geneUsage(repFilter(immdata_trb, 
@@ -310,7 +277,7 @@ cd4_ln <- geneUsage(repFilter(immdata_trb,
                                  .query = list(Organ = exclude('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
 
 vis(cd4_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB LN CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
-getwd()
+
 #ggsave("./final_fig/gene_usage_new/cd4_ln_trb_just1segment.png", width = 20, height = 10, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd4_ln_trb_just1segment.svg", width = 20, height = 10, units = "cm")
 
@@ -338,8 +305,6 @@ vis(cd8_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$me
 # Analysis of NKT cells
 
 Next, we will identify gene segments that are typical for invariant NKT cells. These segments are TRAV11 and TRAJ18 for TRA and TRBV1, TRBV13-2 and TRBV29 for TRB. Please, note that some of the included TRB chains are used by conventional cells as well. 
-
-Counts of NKT gene segments:
 
 ```{r}
 # NKT analysis
@@ -431,10 +396,6 @@ mutate(freq = n / sum(n)) %>% dplyr::filter(nkt_trbv29 == "yes") %>%
 levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
 levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
 
-```
-
-
-```{r}
 nkt_table_trb$nkt_sample <- "all_nkt_trb"
 nkt_table_trav11_traj18$nkt_sample <- "trav11_traj18"
 nkt_table_trbv1$nkt_sample <- "trbv1"
@@ -449,14 +410,23 @@ format(nkt_table_trbv13_2$freq, digits = 2),
 
 colnames(nkt_table) <- c("num_id","Sample","Exp","All TRB NKT", "TRAV11-TRAJ18", "TRBV1","TRBV13-2","TRBV29")
 nkt_table <- nkt_table %>% mutate(Sample = paste(Sample, Exp)) %>% select(-num_id, -Exp) %>% arrange(Sample)
+```
 
+See the percentage of NKT gene segments in each sample:
+
+```{r}
 kable(nkt_table, format = "html") %>%
   kable_styling(full_width = F, font_size = 11, 
                 bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
 ```
 
-### All NKT
+
+Now we will plot the data for CD4 cells and for CD8 cells. Plots for TRA and TRB sequences are separated. 
+
+## All NKT
+
+This plot visualizes the percentage of any of the TRB NKT chains (TRBV1, TRBV13-2 and TRBV29). We can see that this distinction is not specific as these gene segments are also used by conventional CD4 and CD8 T cells. 
 
 ```{r fig.width=7, fig.height=3.5}
 ## CD4
@@ -684,6 +654,108 @@ p09 + p10
 
 # PCA 
 
+In this part we explore the similarity of TCR repertoires of different samples using principal component analysis (PCA).
+
+We will calculate the distances from a filtered matrix of proportions, in which we filtered out the CDR3 sequences that are present in less than five CD4 or in less than five CD8 samples. 
+
+First, we will prepare the filtered normalized count matrix. 
+
+## less than 5 removed
+
+## CD4
+
+Remove CDR3s with occurrence in less than 5 samples
+
+```{r}
+
+# TRA
+keep_tra_cd4 <- excel_count_table_tra %>% 
+  mutate(nkt_trav11_traj18 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11") | 
+    (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no")) %>% 
+  filter(nkt_trav11_traj18 == "no") %>% 
+  select(aaSeqCDR3, starts_with("CD4")) %>% 
+  mutate_at(vars(starts_with("CD4")), .funs = binary) 
+ 
+keep_tra_cd4$sum <- rowSums((keep_tra_cd4 %>% select(-aaSeqCDR3)))
+
+keep_tra_cd4$keep <- ifelse(keep_tra_cd4$sum>4,1,0)
+
+keep_tra_cd4_sequences <- pull(keep_tra_cd4 %>% filter(keep == 1), aaSeqCDR3)
+
+# TRB
+keep_trb_cd4 <- excel_count_table_trb %>% select(aaSeqCDR3, starts_with("CD4")) %>%  mutate_at(vars(starts_with("CD4")), .funs = binary) 
+ 
+keep_trb_cd4$sum <- rowSums((keep_trb_cd4 %>% select(-aaSeqCDR3)))
+
+keep_trb_cd4$keep <- ifelse(keep_trb_cd4$sum>4,1,0)
+
+keep_trb_cd4_sequences <- pull(keep_trb_cd4 %>% filter(keep == 1), aaSeqCDR3)
+
+```
+
+## CD8
+
+Remove CDR3s with occurrence in less than 5 samples
+
+```{r}
+
+# TRA
+keep_tra_cd8 <- excel_count_table_tra %>% 
+  mutate(nkt_trav11_traj18 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11") | 
+    (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no")) %>% 
+  filter(nkt_trav11_traj18 == "no") %>% 
+  select(aaSeqCDR3, starts_with("CD8")) %>% 
+  mutate_at(vars(starts_with("CD8")), .funs = binary) 
+
+keep_tra_cd8$sum <- rowSums((keep_tra_cd8 %>% select(-aaSeqCDR3)))
+
+keep_tra_cd8$keep <- ifelse(keep_tra_cd8$sum>4,1,0)
+
+keep_tra_cd8_sequences <- pull(keep_tra_cd8 %>% filter(keep == 1), aaSeqCDR3)
+
+# TRB
+keep_trb_cd8 <- excel_count_table_trb %>% select(aaSeqCDR3, starts_with("CD8")) %>%  mutate_at(vars(starts_with("CD8")), .funs = binary) 
+ 
+keep_trb_cd8$sum <- rowSums((keep_trb_cd8 %>% select(-aaSeqCDR3)))
+
+keep_trb_cd8$keep <- ifelse(keep_trb_cd8$sum>4,1,0)
+
+keep_trb_cd8_sequences <- pull(keep_trb_cd8 %>% filter(keep == 1), aaSeqCDR3)
+
+```
+
+## TRB
+
+```{r}
+excel_count_table_trb3_filter <- excel_count_table_trb2  %>% filter(aaSeqCDR3 %in% keep_trb_cd4_sequences | aaSeqCDR3 %in% keep_trb_cd8_sequences) 
+
+count_table_trb4_filter <- as.matrix(excel_count_table_trb3_filter[,5:32])
+rownames(count_table_trb4_filter) <- excel_count_table_trb3_filter$aaSeqCDR3
+
+trb4_norm_filter <- scale(count_table_trb4_filter, center=FALSE, scale=colSums(count_table_trb4_filter))
+
+prop.table.trb_filter <- cbind(trb4_norm_filter, excel_count_table_trb3_filter %>% select(-starts_with("CD")) )
+```
+
+
+## TRA
+
+```{r}
+excel_count_table_tra3_filter <- excel_count_table_tra3  %>% filter(aaSeqCDR3 %in% keep_tra_cd4_sequences | aaSeqCDR3 %in% keep_tra_cd8_sequences) %>% filter(nkt_trav11_traj18 == "no")
+
+count_table_tra4_filter <- as.matrix(excel_count_table_tra3_filter[,5:32])
+rownames(count_table_tra4_filter) <- excel_count_table_tra3_filter$aaSeqCDR3
+
+tra4_norm_filter <- scale(count_table_tra4_filter, center=FALSE, scale=colSums(count_table_tra4_filter))
+
+prop.table.tra_filter <- cbind(tra4_norm_filter, excel_count_table_tra3_filter %>% select(-starts_with("CD")) )
+
+colnames(prop.table.tra_filter)
+```
+
+
 ```{r}
 prop.table.tra2_filter.cd4 <- prop.table.tra_filter[,1:14]
 prop.table.tra2_filter.cd4$sum <- rowSums(prop.table.tra2_filter.cd4)
@@ -700,7 +772,6 @@ prop.table.tra2_filter.cd8 <- prop.table.tra2_filter.cd8 %>% filter(sum >0) %>% 
 prop.table.trb2_filter.cd8 <- prop.table.trb_filter[,15:28]
 prop.table.trb2_filter.cd8$sum <- rowSums(prop.table.trb2_filter.cd8)
 prop.table.trb2_filter.cd8 <- prop.table.trb2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
-
 ```
 
 
@@ -708,8 +779,7 @@ prop.table.trb2_filter.cd8 <- prop.table.trb2_filter.cd8 %>% filter(sum >0) %>% 
 
 ### CD4
 
-```{r fig.width=3, fig.height=3}
-colnames(prop.table.tra2_filter.cd4) == colnames(prop.table.trb2_filter.cd4)
+```{r fig.width=4, fig.height=3}
 prop.table.tra2_filter.merge <- rbind(prop.table.tra2_filter.cd4, prop.table.trb2_filter.cd4)
   
 res.pca.merge.cd4 <- prcomp(t(prop.table.tra2_filter.merge), scale = TRUE, center = T)
@@ -737,7 +807,7 @@ fviz_pca_ind(res.pca.merge.cd4,
 
 Zoom 
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 fviz_pca_ind(res.pca.merge.cd4,
              col.ind = as.factor(mdres.pca.merge.cd4$Strain), # color by groups
              legend.title = "Groups",
@@ -759,8 +829,7 @@ fviz_pca_ind(res.pca.merge.cd4,
 
 ### CD8
 
-```{r fig.width=3, fig.height=3}
-colnames(prop.table.tra2_filter.cd8) == colnames(prop.table.trb2_filter.cd8)
+```{r fig.width=4, fig.height=3}
 prop.table.tra2_filter.merge <- rbind(prop.table.tra2_filter.cd8, prop.table.trb2_filter.cd8)
   
 res.pca.merge.cd8 <- prcomp(t(prop.table.tra2_filter.merge), scale = TRUE, center = T)
@@ -787,7 +856,7 @@ fviz_pca_ind(res.pca.merge.cd8,
 
 Zoom
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 fviz_pca_ind(res.pca.merge.cd8,
              col.ind = as.factor(mdres.pca.merge.cd8$Strain), # color by groups
              legend.title = "Groups",
@@ -806,7 +875,7 @@ fviz_pca_ind(res.pca.merge.cd8,
 
 ## TRA
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 res.pca <- prcomp(t(prop.table.tra_filter[,1:28]), scale = TRUE)
 
 
@@ -815,15 +884,12 @@ md  <-  colnames(prop.table.tra_filter[,1:28])  %>%
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-fviz_pca_ind(res.pca,
-             col.ind = as.factor(md$Cell_type), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
+
 ```
 
 ### CD4
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 ## All
 
 prop.table.tra2_filter.cd4 <- prop.table.tra_filter[,1:14]
@@ -832,23 +898,22 @@ prop.table.tra2_filter.cd4$sum <- rowSums(prop.table.tra2_filter.cd4)
 prop.table.tra2_filter.cd4 <- prop.table.tra2_filter.cd4 %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd4 <- prcomp(t(prop.table.tra2_filter.cd4), scale = TRUE, center = T)
-fviz_eig(res.pca.tra.cd4)
 
-mdres.pca.tra.cd4  <-  colnames(prop.table.tra2_filter[,1:14])  %>% 
+mdres.pca.tra.cd4  <-  colnames(prop.table.tra_filter[,1:14])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
 # LN
 prop.table.tra2_filter %>% colnames
-prop.table.tra2_filter.cd4.ln <- prop.table.tra2_filter[,1:7]
+prop.table.tra2_filter.cd4.ln <- prop.table.tra_filter[,1:7]
 prop.table.tra2_filter.cd4.ln$sum <- rowSums(prop.table.tra2_filter.cd4.ln)
 
 prop.table.tra2_filter.cd4.ln <- prop.table.tra2_filter.cd4.ln %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd4.ln <- prcomp(t(prop.table.tra2_filter.cd4.ln), scale = TRUE, center = T)
 
-mdres.pca.tra.cd4.ln  <-  colnames(prop.table.tra2_filter[,1:7])  %>% 
+mdres.pca.tra.cd4.ln  <-  colnames(prop.table.tra_filter[,1:7])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
@@ -869,14 +934,14 @@ fviz_pca_ind(res.pca.tra.cd4.ln,
 
 # Thymus
 
-prop.table.tra2_filter.cd4.thy <- prop.table.tra2_filter[,8:14]
+prop.table.tra2_filter.cd4.thy <- prop.table.tra_filter[,8:14]
 prop.table.tra2_filter.cd4.thy$sum <- rowSums(prop.table.tra2_filter.cd4.thy)
 
 prop.table.tra2_filter.cd4.thy <- prop.table.tra2_filter.cd4.thy %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd4.thy <- prcomp(t(prop.table.tra2_filter.cd4.thy), scale = TRUE, center = T)
 
-mdres.pca.tra.cd4.thy  <-  colnames(prop.table.tra2_filter[,8:14])  %>% 
+mdres.pca.tra.cd4.thy  <-  colnames(prop.table.tra_filter[,8:14])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
@@ -899,10 +964,10 @@ fviz_pca_ind(res.pca.tra.cd4.thy,
 
 ### CD8
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 ## All
 
-prop.table.tra2_filter.cd8 <- prop.table.tra2_filter[,15:28]
+prop.table.tra2_filter.cd8 <- prop.table.tra_filter[,15:28]
 prop.table.tra2_filter.cd8$sum <- rowSums(prop.table.tra2_filter.cd8)
 
 prop.table.tra2_filter.cd8 <- prop.table.tra2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
@@ -917,14 +982,14 @@ mdres.pca.tra.cd8  <-  colnames(prop.table.tra2_filter[,15:28])  %>%
 
 # LN
 prop.table.tra2_filter %>% colnames
-prop.table.tra2_filter.cd8.ln <- prop.table.tra2_filter[,15:21]
+prop.table.tra2_filter.cd8.ln <- prop.table.tra_filter[,15:21]
 prop.table.tra2_filter.cd8.ln$sum <- rowSums(prop.table.tra2_filter.cd8.ln)
 
 prop.table.tra2_filter.cd8.ln <- prop.table.tra2_filter.cd8.ln %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd8.ln <- prcomp(t(prop.table.tra2_filter.cd8.ln), scale = TRUE, center = T)
 
-mdres.pca.tra.cd8.ln  <-  colnames(prop.table.tra2_filter[,15:21])  %>% 
+mdres.pca.tra.cd8.ln  <-  colnames(prop.table.tra_filter[,15:21])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
@@ -945,14 +1010,14 @@ fviz_pca_ind(res.pca.tra.cd8.ln,
 # Thymus
 
 prop.table.tra2_filter %>% colnames
-prop.table.tra2_filter.cd8.thy <- prop.table.tra2_filter[,22:28]
+prop.table.tra2_filter.cd8.thy <- prop.table.tra_filter[,22:28]
 prop.table.tra2_filter.cd8.thy$sum <- rowSums(prop.table.tra2_filter.cd8.thy)
 
 prop.table.tra2_filter.cd8.thy <- prop.table.tra2_filter.cd8.thy %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd8.thy <- prcomp(t(prop.table.tra2_filter.cd8.thy), scale = TRUE, center = T)
 
-mdres.pca.tra.cd8.thy  <-  colnames(prop.table.tra2_filter[,22:28])  %>% 
+mdres.pca.tra.cd8.thy  <-  colnames(prop.table.tra_filter[,22:28])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
@@ -974,7 +1039,7 @@ fviz_pca_ind(res.pca.tra.cd8.thy,
 
 ## TRB
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 res.pca.trb <- prcomp(t(prop.table.trb_filter[,5:32]), scale = TRUE)
 
 
@@ -987,7 +1052,7 @@ md_trb  <-  colnames(prop.table.trb_filter[,5:32])  %>%
 
 ### CD4
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 ## All
 colnames(prop.table.trb2_filter)
 
@@ -1064,7 +1129,7 @@ fviz_pca_ind(res.pca.trb.cd4.thy,
 
 ### CD8
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 ## All
 
 prop.table.trb2_filter.cd8 <- prop.table.trb_filter[,19:32]
@@ -1182,10 +1247,11 @@ chao_trb <- as.data.frame(repDiversity(immdata_trb$data))
 ```{r}
 
 chao_tra2 <- chao_tra %>% 
-  rownames_to_column("num_id") %>% mutate(num_id = str_replace_all(string = num_id, c("new_lib_24" = "lib24_S24_L001",  "new_lib_25" = "lib25_S25_L001"))) %>% 
+  rownames_to_column("num_id") %>% 
+mutate(num_id = str_replace_all(string = num_id, c("new_lib_24" = "lib24_S24_L001",  "new_lib_25" = "lib25_S25_L001"))) %>% 
   separate(num_id, into = c("num_id",NA,NA), sep = "_") %>% 
   mutate(num_id = str_replace(num_id, "lib","")) %>% 
-  mutate_at(num_id, as.numeric) 
+  mutate_at(vars("num_id"), as.numeric) 
   
 
 levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
@@ -1242,7 +1308,8 @@ chao_trb2 <- chao_trb %>%
   rownames_to_column("num_id") %>% mutate(num_id = str_replace_all(string = num_id, c("new_lib_24" = "lib24_S24_L001",  "new_lib_25" = "lib25_S25_L001"))) %>% 
   separate(num_id, into = c("num_id",NA,NA), sep = "_") %>% 
   mutate(num_id = str_replace(num_id, "lib",""))  %>% 
-  mutate_at(num_id, as.numeric) 
+  mutate_at(vars("num_id"), as.numeric) 
+  
 
 levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
 
@@ -1526,7 +1593,7 @@ cd8_topclones_rep_pct2 %>%
 
 ### CD4
 
-```{r}
+```{r fig.width=6, fig.height=8}
 
 # TRA
 cd4_topclones_heatmap_matrix <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6)
@@ -1545,7 +1612,7 @@ pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 
 ### CD8 
 
-```{r}
+```{r fig.width=6, fig.height=8}
 # TRA
 
 cd8_topclones_heatmap_matrix <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5)
@@ -1562,7 +1629,7 @@ pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 ```
 
 without 1st sequence
-```{r}
+```{r fig.width=6, fig.height=8}
 ### without 1st sequence
 
 cd8_topclones_heatmap_matrix2 <- as.matrix(cd8_topclones_heatmap_matrix[2:20,2:15])
@@ -1579,7 +1646,7 @@ pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 
 ### CD4
 
-```{r}
+```{r fig.width=6, fig.height=8}
 
 # trb
 
@@ -1597,7 +1664,7 @@ pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 
 ### CD8
 
-```{r}
+```{r fig.width=6, fig.height=8}
 # trb
 
 cd8_topclones_heatmap_matrix <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5)
@@ -1661,7 +1728,7 @@ rownames(df_all4) <- colnames(df_all4)
 ```
 
 
-```{r fig.width=30, fig.height=25}
+```{r fig.width=15, fig.height=8}
 df24 <- df_all4
 df24[df24 == 1] <- 0
 
@@ -1682,7 +1749,7 @@ g2 + scale_size_continuous(range=c(7,12)) +
 
 ### Rozdelene na CD4 a CD8
 
-```{r fig.width=14, fig.height=10}
+```{r fig.width=7, fig.height=5}
 
 rep_overlap_tra <- read_csv("rep_overlap_tra.csv") %>% column_to_rownames("...1")
 
@@ -1715,7 +1782,7 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ```
 
-```{r fig.width=14, fig.height=10}
+```{r fig.width=7, fig.height=5}
 rep_overlap_tra_cd8 <- rep_overlap_tra_cd8[rev(c(12:14,8:11,5:7,1:4)),rev(c(12:14,8:11,5:7,1:4))]
 
 levels_names <- rev(colnames(rep_overlap_tra_cd8))
@@ -1927,7 +1994,7 @@ g2 + scale_size_continuous(range=c(7,12)) +
 
 ### Rozdelene na CD4 a CD8
 
-```{r fig.width=14, fig.height=10}
+```{r fig.width=7, fig.height=5}
 
 rep_overlap_trb <- read_csv("rep_overlap_trb.csv") %>% column_to_rownames("...1")
 
@@ -1960,7 +2027,7 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ```
 
-```{r fig.width=14, fig.height=10}
+```{r fig.width=7, fig.height=5}
 rep_overlap_trb_cd8 <- rep_overlap_trb_cd8[rev(c(12:14,8:11,5:7,1:4)),rev(c(12:14,8:11,5:7,1:4))]
 
 levels_names <- rev(colnames(rep_overlap_trb_cd8))
@@ -1988,7 +2055,7 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ### A la violin
 
-```{r fig.width=3, fig.height=3}
+```{r}
 
 violin_trb_cd4 <- rep_overlap_trb_cd4 %>% 
   rownames_to_column("sample1") %>% 
@@ -2009,7 +2076,7 @@ violin_trb_cd8 <- rep_overlap_trb_cd8 %>%
   filter(value<1)
 ```
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=5, fig.height=5}
 violin_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
@@ -2035,7 +2102,7 @@ violin_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
 
 ```
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 violin_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
@@ -2061,7 +2128,7 @@ violin_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
 
 ```
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=5, fig.height=5}
 violin_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
@@ -2087,7 +2154,7 @@ violin_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
 
 ```
 
-```{r fig.width=3, fig.height=3}
+```{r fig.width=4, fig.height=3}
 violin_trb_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
