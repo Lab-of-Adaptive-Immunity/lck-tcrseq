@@ -42,16 +42,19 @@ binary <- function(x){
 This document describes the analysis of TCR repertoires for the manuscript "Unique roles of coreceptor-bound LCK in helper and cytotoxic T cellsby Horkova et al. The analysis workflow included: 
 
 * sorting of CD4 and CD8 cells from lymph nodes and thymi of *Lck^WT^*, *Lck^CA^* and *Lck^CA/KR^* mice,
-* isolation of RNA using 
+* isolation of RNA using [RNA Clean & Concentrator-5 kit](https://www.integratedsci.com.au/product/rna-clean-and-concentrator-5-kit.html)
 * preparation of TCR-enriched libraries using the [NEBNext® Mouse Immune Sequencing Kit](https://international.neb.com/products/e6330-nebnext-immune-sequencing-kit-mouse#Product%20Information_Reagents-Supplied)
-* sequencing the libraries on Illumina Miseq 300bp paired-end
-* demultiplexing reads in Illumina BaseSpace
+* sequencing the libraries on Illumina Miseq, 300bp paired-end reads
+* demultiplexing reads in Illumina BaseSpace 
 * processing fastq files using the recommended [pRESTO workflow](https://international.neb.com/-/media/nebus/files/nebnext-chart-pdfs/nebnext-immune-sequencing-data-analysis-workflow-mouse.pdf?rev=7f21b23a3ce444e3bc4dcd57282402ba&hash=C0AE101CBA6C31B2A897A207D9EA6A4D) on Galaxy with default parameters
-* aligning processed fastq files using [MIXCR](https://mixcr.readthedocs.io/en/develop/)
+* aligning processed fastq files using [MiXCR](https://mixcr.readthedocs.io/en/develop/)
 
-Raw data are deposited in the Sequence Read Archive (PRJNA872031). Processed files can be downloaded [download from Zenodo]( ############# ).
-. This analysis starts with file `merged_TCR_repertoires.csv` which you can [download from Zenodo]( ############# )
+Raw data are deposited in the Sequence Read Archive (PRJNA872031). Processed files can be downloaded [download from Zenodo]( ############# ). The Zenodo archive contains the following files, which are needed to run this script:
 
+* merged outputs from MiXCR `merged_TCR_repertoires.csv`
+* metadata file `metadata_Lck.csv`
+* count tables with raw counts of CDR3 TRA and TRB sequences in each sample `count_table_tra.csv`, `"count_table_trb.csv"`
+* TRA and TRB repertoires prepared for processing with the Immunarch package `immdata_tra.rds`, `immdata_trb.rds`
 
 ```{r}
 merged_repertoires <- read.csv("merged_TCR_repertoires.csv")
@@ -63,15 +66,13 @@ head(md)
 # Count tables
 
 ```{r}
-counts_tra <- read_csv("count_table_tra2.csv")
-counts_trb <- read_csv("count_table_trb2.csv")
+counts_tra <- read_csv("count_table_tra.csv")
+counts_tra$...1 <- NULL
+
+counts_trb <- read_csv("count_table_trb.csv")
+counts_trb$...1 <- NULL
 
 ```
-
-## Prop table without NKT without less than 5 counts
-
-
-# count table
 
 ## TRB
 
@@ -82,51 +83,28 @@ md2_trb <- merged_repertoires %>% filter(chain == "TRB") %>% group_by(aaSeqCDR3)
 
 excel_count_table_trb <- counts_trb %>% left_join(md2_trb %>% select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
 
-md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, Exp))  %>% select(num_id, new_name) %>% arrange(num_id)
-  
-colnames(excel_count_table_trb)[2:29] <- c(
-  "CD8 Lymph nodes WT Exp01",
-"CD8 Thymus WT Exp01",
-"CD4 Thymus CA Exp03",
-"CD8 Lymph nodes WT Exp03",
-"CD4 Lymph nodes CAKR Exp03",
-"CD8 Lymph nodes CA Exp03",
-"CD4 Thymus WT Exp02",
-"CD8 Lymph nodes CA Exp02",
-"CD8 Thymus CA Exp03",
-"CD4 Lymph nodes CAKR Exp02",
-"CD4 Lymph nodes CA Exp02",
-"CD4 Lymph nodes WT Exp03",
-"CD4 Thymus CAKR Exp03",
-"CD8 Thymus WT Exp02",
-"CD8 Lymph nodes CAKR Exp02",
-"CD4 Thymus CAKR Exp02",
-"CD4 Thymus CA Exp01",
-"CD8 Thymus CAKR Exp03",
-"CD8 Thymus CAKR Exp02",
-"CD8 Lymph nodes WT Exp02",
-"CD4 Lymph nodes CA Exp01",
-"CD4 Thymus WT Exp03",
-"CD8 Lymph nodes CAKR Exp03",
-"CD4 Lymph nodes CA Exp03",
-"CD4 Lymph nodes WT Exp02",
-"CD8 Thymus WT Exp03",
-"CD4 Thymus CAKR Exp01",
-"CD8 Thymus CA Exp01")
+md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, paste0("Exp0",Exp)))  %>% select(num_id, new_name) %>% arrange(num_id)
 
-excel_count_table_trb2 <- excel_count_table_trb %>% dplyr::select(1, 31, 32, 30, 33, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+order <- match(as.numeric(colnames(counts_trb)[2:29]), md_to_join$num_id)
 
-excel_count_table_trb3 <- excel_count_table_trb2 %>% mutate(nkt_trav11_traj18 = if_else(
-    (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no"))
 
-count_table_trb4 <- as.matrix(excel_count_table_trb3[,6:33])
+colnames(excel_count_table_trb)[2:29] <- pull(md_to_join, new_name)[order]
+
+excel_count_table_trb2 <- excel_count_table_trb %>% dplyr::select(1, 30:32, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+
+excel_count_table_trb2
+colnames(excel_count_table_trb2)
+excel_count_table_trb3 <- excel_count_table_trb2 %>% mutate(nkt_trav11_traj18 = "no")
+
+count_table_trb4 <- as.matrix(excel_count_table_trb3[,5:32])
 rownames(count_table_trb4) <- excel_count_table_trb3$aaSeqCDR3
+
 
 trb4_norm <- scale(count_table_trb4, center=FALSE, scale=colSums(count_table_trb4))
 
 prop.table.trb <- cbind(trb4_norm, excel_count_table_trb %>% select(-starts_with("CD")) ) 
-
-prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 32, 30, 1:28)
+colnames(prop.table.trb)
+prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 30, 32, 1:28)
 
 ```
 
@@ -137,57 +115,30 @@ md2_tra <- merged_repertoires %>% filter(chain == "TRA") %>% group_by(aaSeqCDR3)
 
 excel_count_table_tra <- counts_tra %>% left_join(md2_tra %>% select(allVHitsWithScore, allDHitsWithScore, allJHitsWithScore))
 
-md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, Exp))  %>% select(num_id, new_name) %>% arrange(num_id)
-  
-colnames(excel_count_table_tra)[2:29] <- c(
-  "CD8 Lymph nodes WT Exp01",
-"CD8 Thymus WT Exp01",
-"CD4 Thymus CA Exp03",
-"CD8 Lymph nodes WT Exp03",
-"CD4 Lymph nodes CAKR Exp03",
-"CD8 Lymph nodes CA Exp03",
-"CD4 Thymus WT Exp02",
-"CD8 Lymph nodes CA Exp02",
-"CD8 Thymus CA Exp03",
-"CD4 Lymph nodes CAKR Exp02",
-"CD4 Lymph nodes CA Exp02",
-"CD4 Lymph nodes WT Exp03",
-"CD4 Thymus CAKR Exp03",
-"CD8 Thymus WT Exp02",
-"CD8 Lymph nodes CAKR Exp02",
-"CD4 Thymus CAKR Exp02",
-"CD4 Thymus CA Exp01",
-"CD8 Thymus CAKR Exp03",
-"CD8 Thymus CAKR Exp02",
-"CD8 Lymph nodes WT Exp02",
-"CD4 Lymph nodes CA Exp01",
-"CD4 Thymus WT Exp03",
-"CD8 Lymph nodes CAKR Exp03",
-"CD4 Lymph nodes CA Exp03",
-"CD4 Lymph nodes WT Exp02",
-"CD8 Thymus WT Exp03",
-"CD4 Thymus CAKR Exp01",
-"CD8 Thymus CA Exp01")
+md_to_join <- md %>% mutate(new_name = paste(Cell_type, Organ, Mouse_strain, paste0("Exp0",Exp)))  %>% select(num_id, new_name) %>% arrange(num_id)
 
-excel_count_table_tra2 <- excel_count_table_tra %>% dplyr::select(1, 31, 32, 30, 33, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
+order <- match(as.numeric(colnames(counts_tra)[2:29]), md_to_join$num_id)
+
+colnames(excel_count_table_tra)[2:29] <- pull(md_to_join, new_name)[order]
+excel_count_table_tra2 <- excel_count_table_tra %>% dplyr::select(1, 31, 32, 30, 22, 12, 25, 11, 6, 26, 13, 18, 4, 28, 17, 14, 8, 23, 9, 7, 16, 24, 2, 21, 5, 29, 10, 20, 19, 3, 15, 27)
 
 excel_count_table_tra3 <- excel_count_table_tra2 %>% mutate(nkt_trav11_traj18 = if_else(
     (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no"))
 
 excel_count_table_tra4 <- excel_count_table_tra3 %>% filter(nkt_trav11_traj18 == "no")
 
-count_table_tra4 <- as.matrix(excel_count_table_tra4[,6:33])
+count_table_tra4 <- as.matrix(excel_count_table_tra4[,5:32])
 rownames(count_table_tra4) <- excel_count_table_tra4$aaSeqCDR3
 
 tra4_norm <- scale(count_table_tra4, center=FALSE, scale=colSums(count_table_tra4))
 
 prop.table.tra <- cbind(tra4_norm, excel_count_table_tra4 %>% select(-starts_with("CD")) ) 
 
-prop.table.tra2 <- prop.table.tra %>% dplyr::select(29, 31, 32, 30, 1:28)
+prop.table.tra2 <- prop.table.tra %>% dplyr::select(29, 31, 30, 32, 1:28)
 
 ```
 
-# less than 5 removed
+## less than 5 removed
 
 ## CD4
 
@@ -256,39 +207,131 @@ keep_trb_cd8_sequences <- pull(keep_trb_cd8 %>% filter(keep == 1), aaSeqCDR3)
 ## TRB
 
 ```{r}
-
 excel_count_table_trb3_filter <- excel_count_table_trb2  %>% filter(aaSeqCDR3 %in% keep_trb_cd4_sequences | aaSeqCDR3 %in% keep_trb_cd8_sequences) 
 
-count_table_trb4_filter <- as.matrix(excel_count_table_trb3_filter[,6:33])
+count_table_trb4_filter <- as.matrix(excel_count_table_trb3_filter[,5:32])
 rownames(count_table_trb4_filter) <- excel_count_table_trb3_filter$aaSeqCDR3
 
 trb4_norm_filter <- scale(count_table_trb4_filter, center=FALSE, scale=colSums(count_table_trb4_filter))
 
-prop.table.trb_filter <- cbind(trb4_norm_filter, excel_count_table_trb3_filter %>% select(-starts_with("CD")) ) 
-
-prop.table.trb2_filter <- prop.table.trb_filter %>% dplyr::select(29, 31, 32, 30, 1:28)
+prop.table.trb_filter <- cbind(trb4_norm_filter, excel_count_table_trb3_filter %>% select(-starts_with("CD")) )
 ```
+
 
 ## TRA
 
 ```{r}
-excel_count_table_tra3_filter <- excel_count_table_tra2  %>% filter(aaSeqCDR3 %in% keep_tra_cd4_sequences | aaSeqCDR3 %in% keep_tra_cd8_sequences) %>% filter(is_nkt == "no")
+excel_count_table_tra3_filter <- excel_count_table_tra3  %>% filter(aaSeqCDR3 %in% keep_tra_cd4_sequences | aaSeqCDR3 %in% keep_tra_cd8_sequences) %>% filter(nkt_trav11_traj18 == "no")
 
-count_table_tra4_filter <- as.matrix(excel_count_table_tra3_filter[,6:33])
+count_table_tra4_filter <- as.matrix(excel_count_table_tra3_filter[,5:32])
 rownames(count_table_tra4_filter) <- excel_count_table_tra3_filter$aaSeqCDR3
 
 tra4_norm_filter <- scale(count_table_tra4_filter, center=FALSE, scale=colSums(count_table_tra4_filter))
 
-prop.table.tra_filter <- cbind(tra4_norm_filter, excel_count_table_tra3_filter %>% select(-starts_with("CD")) ) 
+prop.table.tra_filter <- cbind(tra4_norm_filter, excel_count_table_tra3_filter %>% select(-starts_with("CD")) )
 
-
-prop.table.tra2_filter <- prop.table.tra_filter 
+colnames(prop.table.tra_filter)
 ```
+
+
 
 # Gene segment usage analysis
 
 ```{r}
+immdata_tra <- readRDS("immdata_tra.rds")
+immdata_trb <- readRDS("immdata_trb.rds")
+```
 
+
+
+### TRA
+
+```{r fig.width=25, fig.height=8}
+
+### Thymus
+
+cd4_thymus <- geneUsage(repFilter(immdata_tra, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = include('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
+
+vis(cd4_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA Thymus CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+#ggsave("./final_fig/gene_usage_new/cd4_thymus_tra_just1segment.png", width = 60, height = 12, units = "cm") 
+#ggsave("./final_fig/gene_usage_new/cd4_thymus_tra_just1segment.svg", width = 60, height = 12, units = "cm") 
+
+
+### LN
+cd4_ln <- geneUsage(repFilter(immdata_tra, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = exclude('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
+
+vis(cd4_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA LN CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+getwd()
+#ggsave("./final_fig/gene_usage_new/cd4_ln_tra_just1segment.png", width = 60, height = 12, units = "cm")
+#ggsave("./final_fig/gene_usage_new/cd4_ln_tra_just1segment.svg", width = 60, height = 12, units = "cm")
+
+cd8_thymus <- geneUsage(repFilter(immdata_tra, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = include('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
+
+vis(cd8_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA Thymus CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+#ggsave("./final_fig/gene_usage_new/cd8_thymus_tra_just1segment.png", width = 60, height = 12, units = "cm")
+#ggsave("./final_fig/gene_usage_new/cd8_thymus_tra_just1segment.svg", width = 60, height = 12, units = "cm")
+
+
+cd8_ln <- geneUsage(repFilter(immdata_tra, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = exclude('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
+
+vis(cd8_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA LN CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+#ggsave("./final_fig/gene_usage_new/cd8_ln_tra_just1segment.png", width = 60, height = 12, units = "cm")
+#ggsave("./final_fig/gene_usage_new/cd8_ln_tra_just1segment.svg", width = 60, height = 12, units = "cm")
+
+
+```
+
+### TRB
+
+```{r fig.width=8, fig.height=8}
+### Thymus
+
+cd4_thymus <- geneUsage(repFilter(immdata_trb, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = include('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
+
+vis(cd4_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB Thymus CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70")) 
+  
+#ggsave("./final_fig/gene_usage_new/cd4_thymus_trb_just1segment.png", width = 20, height = 10, units = "cm") 
+#ggsave("./final_fig/gene_usage_new/cd4_thymus_trb_just1segment.svg", width = 20, height = 10, units = "cm")
+
+### LN
+cd4_ln <- geneUsage(repFilter(immdata_trb, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = exclude('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
+
+vis(cd4_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB LN CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+getwd()
+#ggsave("./final_fig/gene_usage_new/cd4_ln_trb_just1segment.png", width = 20, height = 10, units = "cm")
+#ggsave("./final_fig/gene_usage_new/cd4_ln_trb_just1segment.svg", width = 20, height = 10, units = "cm")
+
+
+cd8_thymus <- geneUsage(repFilter(immdata_trb, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = include('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
+
+vis(cd8_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB Thymus CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+#ggsave("./final_fig/gene_usage_new/cd8_thymus_trb_just1segment.png", width = 20, height = 10, units = "cm")
+#ggsave("./final_fig/gene_usage_new/cd8_thymus_trb_just1segment.svg", width = 20, height = 10, units = "cm")
+
+
+cd8_ln <- geneUsage(repFilter(immdata_trb, 
+                                 .method = "by.meta", 
+                                 .query = list(Organ = exclude('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
+
+vis(cd8_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB LN CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+#ggsave("./final_fig/gene_usage_new/cd8_ln_trb_just1segment.png", width = 20, height = 10, units = "cm")
+#ggsave("./final_fig/gene_usage_new/cd8_ln_trb_just1segment.svg", width = 20, height = 10, units = "cm")
 
 ```
 
@@ -398,9 +441,11 @@ nkt_table_trbv1$nkt_sample <- "trbv1"
 nkt_table_trbv13_2$nkt_sample <- "trbv13_2"
 nkt_table_trbv29$nkt_sample <- "trbv29"
 
-nkt_table <- cbind(nkt_table_trb$num_id, nkt_table_trb$sample_type, nkt_table_trb$Exp, nkt_table_trb$freq, 
-                   nkt_table_trav11_traj18$freq, nkt_table_trbv1$freq, nkt_table_trbv13_2$freq,
-                   nkt_table_trbv29$freq) %>% as.data.frame
+nkt_table <- cbind(nkt_table_trb$num_id, nkt_table_trb$sample_type, nkt_table_trb$Exp, format(nkt_table_trb$freq, digits = 2), 
+                   format(nkt_table_trav11_traj18$freq, digits = 2),
+format(nkt_table_trbv1$freq, digits = 2), 
+format(nkt_table_trbv13_2$freq, digits = 2),
+                   format(nkt_table_trbv29$freq, digits = 2)) %>% as.data.frame
 
 colnames(nkt_table) <- c("num_id","Sample","Exp","All TRB NKT", "TRAV11-TRAJ18", "TRBV1","TRBV13-2","TRBV29")
 nkt_table <- nkt_table %>% mutate(Sample = paste(Sample, Exp)) %>% select(-num_id, -Exp) %>% arrange(Sample)
@@ -639,45 +684,40 @@ p09 + p10
 
 # PCA 
 
+```{r}
+prop.table.tra2_filter.cd4 <- prop.table.tra_filter[,1:14]
+prop.table.tra2_filter.cd4$sum <- rowSums(prop.table.tra2_filter.cd4)
+prop.table.tra2_filter.cd4 <- prop.table.tra2_filter.cd4 %>% filter(sum >0) %>% select(-sum)
 
+prop.table.trb2_filter.cd4 <- prop.table.trb_filter[,1:14]
+prop.table.trb2_filter.cd4$sum <- rowSums(prop.table.trb2_filter.cd4)
+prop.table.trb2_filter.cd4 <- prop.table.trb2_filter.cd4 %>% filter(sum >0) %>% select(-sum)
+
+prop.table.tra2_filter.cd8 <- prop.table.tra_filter[,15:28]
+prop.table.tra2_filter.cd8$sum <- rowSums(prop.table.tra2_filter.cd8)
+prop.table.tra2_filter.cd8 <- prop.table.tra2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
+
+prop.table.trb2_filter.cd8 <- prop.table.trb_filter[,15:28]
+prop.table.trb2_filter.cd8$sum <- rowSums(prop.table.trb2_filter.cd8)
+prop.table.trb2_filter.cd8 <- prop.table.trb2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
+
+```
 
 
 ## TRA + TRB together
 
-CD4
+### CD4
 
-```{r}
+```{r fig.width=3, fig.height=3}
 colnames(prop.table.tra2_filter.cd4) == colnames(prop.table.trb2_filter.cd4)
 prop.table.tra2_filter.merge <- rbind(prop.table.tra2_filter.cd4, prop.table.trb2_filter.cd4)
   
 res.pca.merge.cd4 <- prcomp(t(prop.table.tra2_filter.merge), scale = TRUE, center = T)
-fviz_eig(res.pca.merge.cd4)
-
-fviz_pca_ind(res.pca.merge.cd4,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.merge.cd4  <-  colnames(prop.table.tra2_filter.merge[,1:14])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-
-fviz_pca_ind(res.pca.merge.cd4,
-             col.ind = as.factor(mdres.pca.merge.cd4$Organ), # color by groups
-             legend.title = "Groups",
-             repel = TRUE, invisible="quali")
-
-fviz_pca_ind(res.pca.merge.cd4,
-             col.ind = as.factor(mdres.pca.merge.cd4$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE, invisible="quali", pointsize = 0) +
-   scale_color_manual(values=c("dodgerblue","indianred2","black")) +
-   geom_point(aes(shape = as.factor(mdres.pca.merge.cd4$Organ),
-                  color = as.factor(mdres.pca.merge.cd4$Strain)))
 
 fviz_pca_ind(res.pca.merge.cd4,
              col.ind = as.factor(mdres.pca.merge.cd4$Strain), # color by groups
@@ -688,10 +728,16 @@ fviz_pca_ind(res.pca.merge.cd4,
    geom_point(aes(shape = as.factor(mdres.pca.merge.cd4$Organ),
                   color = as.factor(mdres.pca.merge.cd4$Strain))) + 
   scale_shape_manual(values = c(8,8,8,15,15)) +
-  ggtheme()
+  ggtheme() +
+  theme(axis.text.x = element_text(angle = 0))
+
 #ggsave("final_fig/pca/cd4.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd4.svg", width = 2.6, height = 1.7)
+```
 
+Zoom 
+
+```{r fig.width=3, fig.height=3}
 fviz_pca_ind(res.pca.merge.cd4,
              col.ind = as.factor(mdres.pca.merge.cd4$Strain), # color by groups
              legend.title = "Groups",
@@ -702,7 +748,8 @@ fviz_pca_ind(res.pca.merge.cd4,
                   color = as.factor(mdres.pca.merge.cd4$Strain))) + 
   scale_shape_manual(values = c(8,8,8,15,15)) +
   xlim(c(-30,0)) + ylim(-2,15) +
-  ggtheme()
+  ggtheme() +
+  theme(axis.text.x = element_text(angle = 0))
 
 
 #ggsave("final_fig/pca/cd4_zoom.png", width = 2.2, height = 1.4)
@@ -710,38 +757,19 @@ fviz_pca_ind(res.pca.merge.cd4,
 ```
 
 
-CD8
+### CD8
 
-```{r}
+```{r fig.width=3, fig.height=3}
 colnames(prop.table.tra2_filter.cd8) == colnames(prop.table.trb2_filter.cd8)
 prop.table.tra2_filter.merge <- rbind(prop.table.tra2_filter.cd8, prop.table.trb2_filter.cd8)
   
 res.pca.merge.cd8 <- prcomp(t(prop.table.tra2_filter.merge), scale = TRUE, center = T)
-fviz_eig(res.pca.merge.cd8)
-
-fviz_pca_ind(res.pca.merge.cd8,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.merge.cd8  <-  colnames(prop.table.tra2_filter.merge[,1:14])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.merge.cd8,
-             col.ind = as.factor(mdres.pca.merge.cd8$Strain), # color by groups
-             legend.title = "Groups",
-             invisible="quali", pointsize = 0,
-             geom = "point") +
-   scale_color_manual(values=c("dodgerblue","indianred2","black")) +
-   geom_point(aes(shape = as.factor(mdres.pca.merge.cd8$Organ),
-                  color = as.factor(mdres.pca.merge.cd8$Strain))) + 
-  scale_shape_manual(values = c(1,1,1,15,15)) +
-  ggtheme()
 
 fviz_pca_ind(res.pca.merge.cd8,
              col.ind = as.factor(mdres.pca.merge.cd8$Strain), # color by groups
@@ -755,7 +783,11 @@ fviz_pca_ind(res.pca.merge.cd8,
   ggtheme()
 #ggsave("final_fig/pca/cd8.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd8.svg", width = 2.6, height = 1.7)
+```
 
+Zoom
+
+```{r fig.width=3, fig.height=3}
 fviz_pca_ind(res.pca.merge.cd8,
              col.ind = as.factor(mdres.pca.merge.cd8$Strain), # color by groups
              legend.title = "Groups",
@@ -774,33 +806,27 @@ fviz_pca_ind(res.pca.merge.cd8,
 
 ## TRA
 
-```{r}
-res.pca <- prcomp(t(prop.table.tra2_filter[,1:28]), scale = TRUE)
-
-fviz_pca_ind(res.pca,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+```{r fig.width=3, fig.height=3}
+res.pca <- prcomp(t(prop.table.tra_filter[,1:28]), scale = TRUE)
 
 
-md  <-  colnames(prop.table.tra2_filter[,1:28])  %>% 
+md  <-  colnames(prop.table.tra_filter[,1:28])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-md
 fviz_pca_ind(res.pca,
              col.ind = as.factor(md$Cell_type), # color by groups
              legend.title = "Groups",
              repel = TRUE)
 ```
 
-CD4
-```{r}
+### CD4
+
+```{r fig.width=3, fig.height=3}
 ## All
 
-prop.table.tra2_filter.cd4 <- prop.table.tra2_filter[,1:14]
+prop.table.tra2_filter.cd4 <- prop.table.tra_filter[,1:14]
 prop.table.tra2_filter.cd4$sum <- rowSums(prop.table.tra2_filter.cd4)
 
 prop.table.tra2_filter.cd4 <- prop.table.tra2_filter.cd4 %>% filter(sum >0) %>% select(-sum)
@@ -808,24 +834,11 @@ prop.table.tra2_filter.cd4 <- prop.table.tra2_filter.cd4 %>% filter(sum >0) %>% 
 res.pca.tra.cd4 <- prcomp(t(prop.table.tra2_filter.cd4), scale = TRUE, center = T)
 fviz_eig(res.pca.tra.cd4)
 
-fviz_pca_ind(res.pca.tra.cd4,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
 mdres.pca.tra.cd4  <-  colnames(prop.table.tra2_filter[,1:14])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.tra.cd4,
-             col.ind = as.factor(mdres.pca.tra.cd4$Organ), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
 # LN
 prop.table.tra2_filter %>% colnames
 prop.table.tra2_filter.cd4.ln <- prop.table.tra2_filter[,1:7]
@@ -834,25 +847,12 @@ prop.table.tra2_filter.cd4.ln$sum <- rowSums(prop.table.tra2_filter.cd4.ln)
 prop.table.tra2_filter.cd4.ln <- prop.table.tra2_filter.cd4.ln %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd4.ln <- prcomp(t(prop.table.tra2_filter.cd4.ln), scale = TRUE, center = T)
-fviz_eig(res.pca.tra.cd4.ln)
-
-fviz_pca_ind(res.pca.tra.cd4.ln,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.tra.cd4.ln  <-  colnames(prop.table.tra2_filter[,1:7])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.tra.cd4.ln,
-             col.ind = as.factor(mdres.pca.tra.cd4.ln$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
 
 fviz_pca_ind(res.pca.tra.cd4.ln,
              col.ind = as.factor(mdres.pca.tra.cd4.ln$Strain), # color by groups
@@ -875,26 +875,12 @@ prop.table.tra2_filter.cd4.thy$sum <- rowSums(prop.table.tra2_filter.cd4.thy)
 prop.table.tra2_filter.cd4.thy <- prop.table.tra2_filter.cd4.thy %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd4.thy <- prcomp(t(prop.table.tra2_filter.cd4.thy), scale = TRUE, center = T)
-fviz_eig(res.pca.tra.cd4.thy)
-
-fviz_pca_ind(res.pca.tra.cd4.thy,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.tra.cd4.thy  <-  colnames(prop.table.tra2_filter[,8:14])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.tra.cd4.thy,
-             col.ind = as.factor(mdres.pca.tra.cd4.thy$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
 fviz_pca_ind(res.pca.tra.cd4.thy,
              col.ind = as.factor(mdres.pca.tra.cd4.thy$Strain), # color by groups
              legend.title = "Groups",
@@ -911,8 +897,9 @@ fviz_pca_ind(res.pca.tra.cd4.thy,
 
 ```
 
-CD8
-```{r}
+### CD8
+
+```{r fig.width=3, fig.height=3}
 ## All
 
 prop.table.tra2_filter.cd8 <- prop.table.tra2_filter[,15:28]
@@ -921,26 +908,12 @@ prop.table.tra2_filter.cd8$sum <- rowSums(prop.table.tra2_filter.cd8)
 prop.table.tra2_filter.cd8 <- prop.table.tra2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd8 <- prcomp(t(prop.table.tra2_filter.cd8), scale = TRUE, center = T)
-fviz_eig(res.pca.tra.cd8)
-
-fviz_pca_ind(res.pca.tra.cd8,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.tra.cd8  <-  colnames(prop.table.tra2_filter[,15:28])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.tra.cd8,
-             col.ind = as.factor(mdres.pca.tra.cd8$Organ), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
 
 # LN
 prop.table.tra2_filter %>% colnames
@@ -950,26 +923,12 @@ prop.table.tra2_filter.cd8.ln$sum <- rowSums(prop.table.tra2_filter.cd8.ln)
 prop.table.tra2_filter.cd8.ln <- prop.table.tra2_filter.cd8.ln %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd8.ln <- prcomp(t(prop.table.tra2_filter.cd8.ln), scale = TRUE, center = T)
-fviz_eig(res.pca.tra.cd8.ln)
-
-fviz_pca_ind(res.pca.tra.cd8.ln,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.tra.cd8.ln  <-  colnames(prop.table.tra2_filter[,15:21])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.tra.cd8.ln,
-             col.ind = as.factor(mdres.pca.tra.cd8.ln$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
 fviz_pca_ind(res.pca.tra.cd8.ln,
              col.ind = as.factor(mdres.pca.tra.cd8.ln$Strain), # color by groups
              legend.title = "Groups",
@@ -992,26 +951,12 @@ prop.table.tra2_filter.cd8.thy$sum <- rowSums(prop.table.tra2_filter.cd8.thy)
 prop.table.tra2_filter.cd8.thy <- prop.table.tra2_filter.cd8.thy %>% filter(sum >0) %>% select(-sum)
 
 res.pca.tra.cd8.thy <- prcomp(t(prop.table.tra2_filter.cd8.thy), scale = TRUE, center = T)
-fviz_eig(res.pca.tra.cd8.thy)
-
-fviz_pca_ind(res.pca.tra.cd8.thy,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
 
 mdres.pca.tra.cd8.thy  <-  colnames(prop.table.tra2_filter[,22:28])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-
-fviz_pca_ind(res.pca.tra.cd8.thy,
-             col.ind = as.factor(mdres.pca.tra.cd8.thy$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
+ 
 fviz_pca_ind(res.pca.tra.cd8.thy,
              col.ind = as.factor(mdres.pca.tra.cd8.thy$Strain), # color by groups
              legend.title = "Groups",
@@ -1029,85 +974,50 @@ fviz_pca_ind(res.pca.tra.cd8.thy,
 
 ## TRB
 
-```{r}
-res.pca.trb <- prcomp(t(prop.table.trb2_filter[,5:32]), scale = TRUE)
-
-fviz_pca_ind(res.pca.trb,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+```{r fig.width=3, fig.height=3}
+res.pca.trb <- prcomp(t(prop.table.trb_filter[,5:32]), scale = TRUE)
 
 
-md_trb  <-  colnames(prop.table.trb2_filter[,5:32])  %>% 
+md_trb  <-  colnames(prop.table.trb_filter[,5:32])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-fviz_pca_ind(res.pca.trb,
-             col.ind = as.factor(md_trb$Cell_type), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
+
 ```
 
-CD4
-```{r}
+### CD4
+
+```{r fig.width=3, fig.height=3}
 ## All
 colnames(prop.table.trb2_filter)
 
-prop.table.trb2_filter.cd4 <- prop.table.trb2_filter[,5:18]
+prop.table.trb2_filter.cd4 <- prop.table.trb_filter[,5:18]
 prop.table.trb2_filter.cd4$sum <- rowSums(prop.table.trb2_filter.cd4)
 
 prop.table.trb2_filter.cd4 <- prop.table.trb2_filter.cd4 %>% filter(sum >0) %>% select(-sum)
 
 res.pca.trb.cd4 <- prcomp(t(prop.table.trb2_filter.cd4), scale = TRUE, center = T)
-fviz_eig(res.pca.trb.cd4)
 
-fviz_pca_ind(res.pca.trb.cd4,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
-mdres.pca.trb.cd4  <-  colnames(prop.table.trb2_filter[,5:18])  %>% 
+mdres.pca.trb.cd4  <-  colnames(prop.table.trb_filter[,5:18])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-
-fviz_pca_ind(res.pca.trb.cd4,
-             col.ind = as.factor(mdres.pca.trb.cd4$Organ), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
+ 
 
 # LN
-prop.table.trb2_filter %>% colnames
-prop.table.trb2_filter.cd4.ln <- prop.table.trb2_filter[,5:11]
+prop.table.trb_filter %>% colnames
+prop.table.trb2_filter.cd4.ln <- prop.table.trb_filter[,5:11]
 prop.table.trb2_filter.cd4.ln$sum <- rowSums(prop.table.trb2_filter.cd4.ln)
 
 prop.table.trb2_filter.cd4.ln <- prop.table.trb2_filter.cd4.ln %>% filter(sum >0) %>% select(-sum)
 
 res.pca.trb.cd4.ln <- prcomp(t(prop.table.trb2_filter.cd4.ln), scale = TRUE, center = T)
-fviz_eig(res.pca.trb.cd4.ln)
 
-fviz_pca_ind(res.pca.trb.cd4.ln,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
-mdres.pca.trb.cd4.ln  <-  colnames(prop.table.trb2_filter[,5:11])  %>% 
+mdres.pca.trb.cd4.ln  <-  colnames(prop.table.trb_filter[,5:11])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.trb.cd4.ln,
-             col.ind = as.factor(mdres.pca.trb.cd4.ln$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
 
 fviz_pca_ind(res.pca.trb.cd4.ln,
              col.ind = as.factor(mdres.pca.trb.cd4.ln$Strain), # color by groups
@@ -1124,33 +1034,19 @@ fviz_pca_ind(res.pca.trb.cd4.ln,
 
 # Thymus
 
-prop.table.trb2_filter %>% colnames
-prop.table.trb2_filter.cd4.thy <- prop.table.trb2_filter[,12:18]
+prop.table.trb_filter %>% colnames
+prop.table.trb2_filter.cd4.thy <- prop.table.trb_filter[,12:18]
 prop.table.trb2_filter.cd4.thy$sum <- rowSums(prop.table.trb2_filter.cd4.thy)
 
 prop.table.trb2_filter.cd4.thy <- prop.table.trb2_filter.cd4.thy %>% filter(sum >0) %>% select(-sum)
 
 res.pca.trb.cd4.thy <- prcomp(t(prop.table.trb2_filter.cd4.thy), scale = TRUE, center = T)
-fviz_eig(res.pca.trb.cd4.thy)
 
-fviz_pca_ind(res.pca.trb.cd4.thy,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
-mdres.pca.trb.cd4.thy  <-  colnames(prop.table.trb2_filter[,12:18])  %>% 
+mdres.pca.trb.cd4.thy  <-  colnames(prop.table.trb_filter[,12:18])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-
-fviz_pca_ind(res.pca.trb.cd4.thy,
-             col.ind = as.factor(mdres.pca.trb.cd4.thy$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
+ 
 fviz_pca_ind(res.pca.trb.cd4.thy,
              col.ind = as.factor(mdres.pca.trb.cd4.thy$Strain), # color by groups
              legend.title = "Groups",
@@ -1165,66 +1061,39 @@ fviz_pca_ind(res.pca.trb.cd4.thy,
 #ggsave("final_fig/pca/cd4_trb_thy.svg", width = 2.6, height = 1.7)
 
 ```
-CD8
-```{r}
+
+### CD8
+
+```{r fig.width=3, fig.height=3}
 ## All
 
-prop.table.trb2_filter.cd8 <- prop.table.trb2_filter[,19:32]
+prop.table.trb2_filter.cd8 <- prop.table.trb_filter[,19:32]
 prop.table.trb2_filter.cd8$sum <- rowSums(prop.table.trb2_filter.cd8)
 
 prop.table.trb2_filter.cd8 <- prop.table.trb2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
 
 res.pca.trb.cd8 <- prcomp(t(prop.table.trb2_filter.cd8), scale = TRUE, center = T)
-fviz_eig(res.pca.trb.cd8)
 
-fviz_pca_ind(res.pca.trb.cd8,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
-mdres.pca.trb.cd8  <-  colnames(prop.table.trb2_filter[,19:32])  %>% 
+mdres.pca.trb.cd8  <-  colnames(prop.table.trb_filter[,19:32])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
 
-fviz_pca_ind(res.pca.trb.cd8,
-             col.ind = as.factor(mdres.pca.trb.cd8$Organ), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
-
-
 # LN
-prop.table.trb2_filter %>% colnames
-prop.table.trb2_filter.cd8.ln <- prop.table.trb2_filter[,19:25]
+prop.table.trb_filter %>% colnames
+prop.table.trb2_filter.cd8.ln <- prop.table.trb_filter[,19:25]
 prop.table.trb2_filter.cd8.ln$sum <- rowSums(prop.table.trb2_filter.cd8.ln)
 
 prop.table.trb2_filter.cd8.ln <- prop.table.trb2_filter.cd8.ln %>% filter(sum >0) %>% select(-sum)
 
 res.pca.trb.cd8.ln <- prcomp(t(prop.table.trb2_filter.cd8.ln), scale = TRUE, center = T)
-fviz_eig(res.pca.trb.cd8.ln)
 
-fviz_pca_ind(res.pca.trb.cd8.ln,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
-mdres.pca.trb.cd8.ln  <-  colnames(prop.table.trb2_filter[,19:25])  %>% 
+mdres.pca.trb.cd8.ln  <-  colnames(prop.table.trb_filter[,19:25])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-fviz_pca_ind(res.pca.trb.cd8.ln,
-             col.ind = as.factor(mdres.pca.trb.cd8.ln$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
 fviz_pca_ind(res.pca.trb.cd8.ln,
              col.ind = as.factor(mdres.pca.trb.cd8.ln$Strain), # color by groups
              legend.title = "Groups",
@@ -1241,33 +1110,19 @@ fviz_pca_ind(res.pca.trb.cd8.ln,
 
 # Thymus
 
-prop.table.trb2_filter %>% colnames
-prop.table.trb2_filter.cd8.thy <- prop.table.trb2_filter[,26:32]
+prop.table.trb_filter %>% colnames
+prop.table.trb2_filter.cd8.thy <- prop.table.trb_filter[,26:32]
 prop.table.trb2_filter.cd8.thy$sum <- rowSums(prop.table.trb2_filter.cd8.thy)
 
 prop.table.trb2_filter.cd8.thy <- prop.table.trb2_filter.cd8.thy %>% filter(sum >0) %>% select(-sum)
 
 res.pca.trb.cd8.thy <- prcomp(t(prop.table.trb2_filter.cd8.thy), scale = TRUE, center = T)
-fviz_eig(res.pca.trb.cd8.thy)
 
-fviz_pca_ind(res.pca.trb.cd8.thy,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
-
-
-mdres.pca.trb.cd8.thy  <-  colnames(prop.table.trb2_filter[,26:32])  %>% 
+mdres.pca.trb.cd8.thy  <-  colnames(prop.table.trb_filter[,26:32])  %>% 
   as.data.frame() %>% 
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-
-fviz_pca_ind(res.pca.trb.cd8.thy,
-             col.ind = as.factor(mdres.pca.trb.cd8.thy$Strain), # color by groups
-             legend.title = "Groups",
-             repel = TRUE)
-
+ 
 fviz_pca_ind(res.pca.trb.cd8.thy,
              col.ind = as.factor(mdres.pca.trb.cd8.thy$Strain), # color by groups
              legend.title = "Groups",
@@ -1285,19 +1140,976 @@ fviz_pca_ind(res.pca.trb.cd8.thy,
 
 # Diversity index
 
-# Top20 WT LN sequences
+```{r}
 
-## Summary plot
+immdata_tra_wonkt <- repFilter(immdata_tra, "by.clonotype",
+  list(V.name = exclude("TRAV11"), J.name = exclude("TRAJ18")),
+  .match = "substring")
 
-## Heatmaps
+## ALL TRA
+repDiversity(immdata_tra_wonkt$data) %>% vis(.by = c( "Mouse_strain"), .meta = immdata_tra$meta, 
+  .signif.label.size = 0) + ggtitle("TRA without NKT") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70")) + ggtitle("all TRA", subtitle = "")
+#ggsave("./final_fig/diversity/chao_tra_wonkt_sign.png", width = 8, height = 13, units = "cm")
+#ggsave("./final_fig/diversity/chao_tra_wonkt_sign.svg", width = 8, height = 13, units = "cm")
 
-## Repertoire overlap
 
+## ALL TRB
+repDiversity(immdata_trb$data) %>% vis(.by = c( "Mouse_strain"), .meta = immdata_trb$meta, 
+  .signif.label.size = 0) + ggtitle("TRB without NKT") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70")) + ggtitle("all TRB", subtitle = "")
+#ggsave("./final_fig/diversity/chao_trb_sign.png", width = 8, height = 13, units = "cm")
+#ggsave("./final_fig/diversity/chao_trb_sign.svg", width = 8, height = 13, units = "cm")
+
+
+## Chao index
+repDiversity(immdata_tra_wonkt$data) %>% vis(.by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta, .test = F,
+  .signif.label.size = 0) + ggtitle("TRA")
+#ggsave("./plots/chao_tra.png", width = 15, height = 11, units = "cm")
+#ggsave("./plots/chao_tra.svg", width = 15, height = 11, units = "cm")
+
+repDiversity(immdata_trb$data) %>% vis(.by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F,
+  .signif.label.size = 0) + ggtitle("TRB", subtitle = "")
+#ggsave("./plots/chao_trb.png", width = 15, height = 11, units = "cm")
+#ggsave("./plots/chao_trb.svg", width = 15, height = 11, units = "cm")
+
+```
+
+```{r}
+chao_tra <- as.data.frame(repDiversity(immdata_tra_wonkt$data))
+chao_trb <- as.data.frame(repDiversity(immdata_trb$data))
+```
 
 
 ```{r}
 
+chao_tra2 <- chao_tra %>% 
+  rownames_to_column("num_id") %>% mutate(num_id = str_replace_all(string = num_id, c("new_lib_24" = "lib24_S24_L001",  "new_lib_25" = "lib25_S25_L001"))) %>% 
+  separate(num_id, into = c("num_id",NA,NA), sep = "_") %>% 
+  mutate(num_id = str_replace(num_id, "lib","")) %>% 
+  mutate_at(num_id, as.numeric) 
+  
 
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+# Attach metadata sent for sequencing
+
+chao_tra2 <- left_join(chao_tra2, md) %>% select(value = Estimator, Cell_type, Organ, Mouse_strain) %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+chao_tra2 %>% filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = value, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Chao index estimate") + 
+  ggtitle("CD4 TRA") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+#ggsave("./final_fig/diversity/chao_cd4_tra.png", width = 8, height = 10, units = "cm")
+#ggsave("./final_fig/diversity/chao_cd4_tra.eps", width = 8, height = 10, units = "cm")
+
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+chao_tra2 %>% filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = value, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Chao index estimate") + 
+  ggtitle("CD8 TRA") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+#ggsave("./final_fig/diversity/chao_cd8_tra.png", width = 8, height = 10, units = "cm")
+#ggsave("./final_fig/diversity/chao_cd8_tra.eps", width = 8, height = 10, units = "cm")
+
+```
+
+```{r}
+chao_trb2 <- chao_trb %>% 
+  rownames_to_column("num_id") %>% mutate(num_id = str_replace_all(string = num_id, c("new_lib_24" = "lib24_S24_L001",  "new_lib_25" = "lib25_S25_L001"))) %>% 
+  separate(num_id, into = c("num_id",NA,NA), sep = "_") %>% 
+  mutate(num_id = str_replace(num_id, "lib",""))  %>% 
+  mutate_at(num_id, as.numeric) 
+
+levels_cd4 <- c("CD4 Thymus WT", "CD4 Thymus CA", "CD4 Thymus CAKR", "CD4 Lymph nodes WT", "CD4 Lymph nodes CA", "CD4 Lymph nodes CAKR")
+
+chao_trb2 <- left_join(chao_trb2, md) %>% select(value = Estimator, Cell_type, Organ, Mouse_strain) %>%
+   mutate(sample_type = paste(Cell_type, Organ, Mouse_strain)) 
+
+chao_trb2 %>% filter(Cell_type == "CD4") %>% 
+  ggplot(aes(y = value, x = factor(sample_type, levels = levels_cd4))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Chao index estimate") + 
+  ggtitle("CD4 TRB") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,125500)) + xlab("")
+  
+#ggsave("./final_fig/diversity/chao_cd4_trb.png", width = 8, height = 10, units = "cm")
+#ggsave("./final_fig/diversity/chao_cd4_trb.eps", width = 8, height = 10, units = "cm")
+
+levels_cd8 <- c("CD8 Thymus WT", "CD8 Thymus CA", "CD8 Thymus CAKR", "CD8 Lymph nodes WT", "CD8 Lymph nodes CA", "CD8 Lymph nodes CAKR")
+
+
+chao_trb2 %>% filter(Cell_type == "CD8") %>% 
+  ggplot(aes(y = value, x = factor(sample_type, levels = levels_cd8))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Mouse_strain)) + 
+  ylab("Chao index estimate") + 
+  ggtitle("CD8 TRB") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,125500)) + xlab("")
+  
+#ggsave("./final_fig/diversity/chao_cd8_trb.png", width = 8, height = 10, units = "cm")
+#ggsave("./final_fig/diversity/chao_cd8_trb.eps", width = 8, height = 10, units = "cm")
+
+```
+
+
+```{r}
+chao_trb2 %>% 
+  ggplot(aes(y = value, x = factor(Mouse_strain, levels = c("WT","CA","CAKR")))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.1), size = 2, aes(color = Mouse_strain)) +
+ylab("Chao index estimate") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+#ggsave("./final_fig/diversity/chao_all_trb.png", width = 8, height = 6, units = "cm")
+#ggsave("./final_fig/diversity/chao_all_trb.eps", width = 8, height = 6, units = "cm")
+
+
+chao_tra2 %>% 
+  ggplot(aes(y = value, x = factor(Mouse_strain, levels = c("WT","CA","CAKR")))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.1), size = 2, aes(color = Mouse_strain)) +
+ylab("Chao index estimate") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+  
+#ggsave("./final_fig/diversity/chao_all_tra.png", width = 8, height = 6, units = "cm")
+#ggsave("./final_fig/diversity/chao_all_tra.eps", width = 8, height = 6, units = "cm")
+
+```
+
+# Top20 WT LN sequences
+
+```{r}
+topclones <- prop.table.trb_filter %>% mutate(topclones_ln_cd4 = (`CD4 Lymph nodes WT Exp02`+
+                                                                       `CD4 Lymph nodes WT Exp03`)/2,
+                                               topclones_ln_cd8 = (`CD8 Lymph nodes WT Exp01`+
+                                                                       `CD8 Lymph nodes WT Exp02`+
+                                                                       `CD8 Lymph nodes WT Exp03`)/3)
+
+cd4_topclones_20sequences_trb <- pull(topclones %>% slice_max(order_by = topclones_ln_cd4, n = 20), aaSeqCDR3)
+cd8_topclones_20sequences_trb <- pull(topclones %>% slice_max(order_by = topclones_ln_cd8, n = 20), aaSeqCDR3)
+```
+
+```{r}
+topclones <- prop.table.tra_filter %>% mutate(topclones_ln_cd4 = (`CD4 Lymph nodes WT Exp02`+
+                                                                       `CD4 Lymph nodes WT Exp03`)/2,
+                                               topclones_ln_cd8 = (`CD8 Lymph nodes WT Exp01`+
+                                                                       `CD8 Lymph nodes WT Exp02`+
+                                                                       `CD8 Lymph nodes WT Exp03`)/3)
+
+cd4_topclones_20sequences_tra <- pull(topclones %>% slice_max(order_by = topclones_ln_cd4, n = 20), aaSeqCDR3)
+cd8_topclones_20sequences_tra <- pull(topclones %>% slice_max(order_by = topclones_ln_cd8, n = 20), aaSeqCDR3)
+
+```
+
+
+## Summary plot
+
+### CD4 TRA
+
+```{r fig.width=3, fig.height=3}
+cd4_topclones_rep_pct <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6) 
+
+cd4_topclones_rep_pct2 <- as.data.frame(colSums(cd4_topclones_rep_pct[,2:15]))
+colnames(cd4_topclones_rep_pct2) <- "value"
+
+cd4_topclones_rep_pct2 <- cd4_topclones_rep_pct2 %>% 
+  rownames_to_column("sample") %>% 
+  mutate(sample = stringr::str_replace_all(sample, pattern = "Lymph nodes", replacement = "LN")) %>% 
+  separate(sample, into = c("Cell_type","Organ","Strain","Exp")) %>% 
+  mutate(Cell_type_organ = factor(paste(Organ, Strain), levels = c("Thymus WT","Thymus CA", "Thymus CAKR",
+                                                                   "LN WT","LN CA", "LN CAKR" )))
+
+cd4_topclones_rep_pct2
+
+cd4_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>% 
+  ggplot(aes(y = value*100, x = factor(Cell_type_organ))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Strain)) + 
+  ylab("% of repertoire") + 
+  ggtitle("CD4 TRA") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+
+#ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd4.png", width = 5, height = 5.7, units = "cm")
+#ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd4.eps", width = 5, height = 5.7, units = "cm")
+
+```
+
+### CD4 TRB
+```{r fig.width=3, fig.height=3}
+cd4_topclones_rep_pct <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6) 
+
+cd4_topclones_rep_pct2 <- as.data.frame(colSums(cd4_topclones_rep_pct[,2:15]))
+colnames(cd4_topclones_rep_pct2) <- "value"
+
+cd4_topclones_rep_pct2 <- cd4_topclones_rep_pct2 %>% 
+  rownames_to_column("sample") %>% 
+  mutate(sample = stringr::str_replace_all(sample, pattern = "Lymph nodes", replacement = "LN")) %>% 
+  separate(sample, into = c("Cell_type","Organ","Strain","Exp")) %>% 
+  mutate(Cell_type_organ = factor(paste(Organ, Strain), levels = c("Thymus WT","Thymus CA", "Thymus CAKR",
+                                                                   "LN WT","LN CA", "LN CAKR" )))
+
+cd4_topclones_rep_pct2
+
+cd4_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>% 
+  ggplot(aes(y = value*100, x = factor(Cell_type_organ))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Strain)) + 
+  ylab("% of repertoire") + 
+  ggtitle("CD4 TRB") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+
+
+#ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd4.png", width = 5.4, height = 5.7, units = "cm")
+#ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd4.eps", width = 5.4, height = 5.7, units = "cm")
+
+
+
+```
+
+### CD8 TRA
+
+```{r fig.width=3, fig.height=3}
+cd8_topclones_rep_pct <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5) 
+
+cd8_topclones_rep_pct2 <- as.data.frame(colSums(cd8_topclones_rep_pct[,2:15]))
+colnames(cd8_topclones_rep_pct2) <- "value"
+
+cd8_topclones_rep_pct2 <- cd8_topclones_rep_pct2 %>% 
+  rownames_to_column("sample") %>% 
+  mutate(sample = stringr::str_replace_all(sample, pattern = "Lymph nodes", replacement = "LN")) %>% 
+  separate(sample, into = c("Cell_type","Organ","Strain","Exp")) %>% 
+  mutate(Cell_type_organ = factor(paste(Organ, Strain), levels = c("Thymus WT","Thymus CA", "Thymus CAKR",
+                                                                   "LN WT","LN CA", "LN CAKR" )))
+
+cd8_topclones_rep_pct2
+
+cd8_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>% 
+  ggplot(aes(y = value*100, x = factor(Cell_type_organ))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Strain)) + 
+  ylab("% of repertoire") + 
+  ggtitle("CD8 TRA") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+
+#ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd8.png", width = 5, height = 5.7, units = "cm")
+#ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd8.eps", width = 5, height = 5.7, units = "cm")
+
+```
+
+### CD8 TRB
+```{r fig.width=3, fig.height=3}
+cd8_topclones_rep_pct <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5) 
+
+cd8_topclones_rep_pct2 <- as.data.frame(colSums(cd8_topclones_rep_pct[,2:15]))
+colnames(cd8_topclones_rep_pct2) <- "value"
+
+cd8_topclones_rep_pct2 <- cd8_topclones_rep_pct2 %>% 
+  rownames_to_column("sample") %>% 
+  mutate(sample = stringr::str_replace_all(sample, pattern = "Lymph nodes", replacement = "LN")) %>% 
+  separate(sample, into = c("Cell_type","Organ","Strain","Exp")) %>% 
+  mutate(Cell_type_organ = factor(paste(Organ, Strain), levels = c("Thymus WT","Thymus CA", "Thymus CAKR",
+                                                                   "LN WT","LN CA", "LN CAKR" )))
+
+cd8_topclones_rep_pct2
+
+cd8_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>% 
+  ggplot(aes(y = value*100, x = factor(Cell_type_organ))) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  geom_point(aes(color = Strain)) + 
+  ylab("% of repertoire") + 
+  ggtitle("CD8 TRB") + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,NA)) + xlab("")
+
+#ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd8.png", width = 5.4, height = 5.7, units = "cm")
+#ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd8.eps", width = 5.4, height = 5.7, units = "cm")
+
+```
+
+# Heatmaps
+
+## TRA
+
+### CD4
+
+```{r}
+
+# TRA
+cd4_topclones_heatmap_matrix <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6)
+
+cd4_topclones_heatmap_matrix2 <- as.matrix(cd4_topclones_heatmap_matrix[,2:15])
+rownames(cd4_topclones_heatmap_matrix2) <- cd4_topclones_heatmap_matrix$aaSeqCDR3
+
+cd4_topclones_heatmap_matrix2 <- cd4_topclones_heatmap_matrix2[match( cd4_topclones_20sequences_tra, rownames(cd4_topclones_heatmap_matrix2)),]
+
+pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
+
+#ggsave(plot = pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd4_tra_noscale.svg")
+
+
+```
+
+### CD8 
+
+```{r}
+# TRA
+
+cd8_topclones_heatmap_matrix <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5)
+  
+
+cd8_topclones_heatmap_matrix2 <- as.matrix(cd8_topclones_heatmap_matrix[,2:15])
+rownames(cd8_topclones_heatmap_matrix2) <- cd8_topclones_heatmap_matrix$aaSeqCDR3
+
+cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match( cd8_topclones_20sequences_tra, rownames(cd8_topclones_heatmap_matrix2)),]
+
+pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
+
+#ggsave(plot = pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd8_tra_noscale.svg")
+```
+
+without 1st sequence
+```{r}
+### without 1st sequence
+
+cd8_topclones_heatmap_matrix2 <- as.matrix(cd8_topclones_heatmap_matrix[2:20,2:15])
+rownames(cd8_topclones_heatmap_matrix2) <- cd8_topclones_heatmap_matrix$aaSeqCDR3[2:20]
+
+cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match( cd8_topclones_20sequences_tra[2:20], rownames(cd8_topclones_heatmap_matrix2)),]
+
+pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
+
+#ggsave(plot = pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd8_tra_noscale_without.svg")
+```
+
+## TRB
+
+### CD4
+
+```{r}
+
+# trb
+
+cd4_topclones_heatmap_matrix <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6)
+  
+cd4_topclones_heatmap_matrix2 <- as.matrix(cd4_topclones_heatmap_matrix[,2:15])
+rownames(cd4_topclones_heatmap_matrix2) <- cd4_topclones_heatmap_matrix$aaSeqCDR3
+
+cd4_topclones_heatmap_matrix2 <- cd4_topclones_heatmap_matrix2[match( cd4_topclones_20sequences_trb, rownames(cd4_topclones_heatmap_matrix2)),]
+
+pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
+
+#ggsave(plot = pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd4_trb_noscale.svg")
+```
+
+### CD8
+
+```{r}
+# trb
+
+cd8_topclones_heatmap_matrix <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5)
+  
+cd8_topclones_heatmap_matrix2 <- as.matrix(cd8_topclones_heatmap_matrix[,2:15])
+rownames(cd8_topclones_heatmap_matrix2) <- cd8_topclones_heatmap_matrix$aaSeqCDR3
+
+cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match( cd8_topclones_20sequences_trb, rownames(cd8_topclones_heatmap_matrix2)),]
+
+pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
+
+# png("final_fig/heatmap_top20_ordered/cd8_trb_noscale.png", width = 400, height = 500)
+# pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
+# dev.off()
+
+#ggsave(plot = pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd8_trb_noscale.svg")
+```
+
+# Repertoire overlap
+
+```{r}
+
+binary_tra <- excel_count_table_tra %>% 
+  mutate(nkt_trav11_traj18 = if_else(
+    (grepl(allVHitsWithScore, pattern = "TRAV11") | 
+    (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no")) %>% 
+  filter(nkt_trav11_traj18 == "no") %>% 
+  mutate_at(vars(starts_with("CD")), .funs = binary) 
+
+# count_overlap <- function(df, column_number){
+#   repertoire <- df %>% select(vars(column_number), aaSeqCDR3) %>% filter(vars(column_number)>0) %>% pull("aaSeqCDR3")
+#   nrow_column <- length(repertoire)
+#   intersect_rept <- length(intersect(repertoire, most_diverse_repertoire))
+#   pct <- intersect_rept/length()
+#   return(x)
+# }
+
+binary_tra_longer <- binary_tra %>% select(starts_with("CD"), aaSeqCDR3) %>% pivot_longer(!aaSeqCDR3, names_to = "num_id")
+
+df_all4 <- data.frame("")
+
+for(j in levels(factor(binary_tra_longer$num_id))){
+  subset1 <- binary_tra_longer %>% filter(num_id == j & value>0) %>% pull("aaSeqCDR3")
+  vector_overlap <- c()
+  for(i in levels(factor(binary_tra_longer$num_id))){
+    subset2 <- binary_tra_longer %>% filter(num_id == i & value>0) %>% pull("aaSeqCDR3")
+    intersect_rep <- length(intersect(subset1, subset2))
+    total <- length(subset2)
+    vector_overlap <- c(vector_overlap,intersect_rep/total)
+  }
+  df <- as.data.frame(x = vector_overlap)
+  colnames(df) <- j
+  df
+  df_all4 <- cbind(df_all4, df)
+}
+
+df_all4 <- df_all4[,2:29]
+rownames(df_all4) <- colnames(df_all4)
+
+#write.csv(df_all4, "rep_overlap_tra.csv")
+```
+
+
+```{r fig.width=30, fig.height=25}
+df24 <- df_all4
+df24[df24 == 1] <- 0
+
+### plot dotplot of overlaps
+
+df25 <- df24 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df25, aes(id, factor(name, levels = rev(levels(factor(name)))))) + 
+  geom_point(aes(size = value*100, colour = value*100)) + 
+  theme_bw() 
+
+g2 + scale_size_continuous(range=c(7,12)) +
+  geom_text(aes(label = round(value*100, digits = 1))) + 
+  scale_colour_gradient2(low = "lightskyblue", mid = "lightsteelblue2", high = "salmon") +
+  theme(axis.text.x = element_text(angle = 90)) 
+
+```
+
+### Rozdelene na CD4 a CD8
+
+```{r fig.width=14, fig.height=10}
+
+rep_overlap_tra <- read_csv("rep_overlap_tra.csv") %>% column_to_rownames("...1")
+
+rep_overlap_tra_cd4 <- rep_overlap_tra[1:14,1:14]
+rep_overlap_tra_cd8 <- rep_overlap_tra[15:28,15:28]
+
+rep_overlap_tra_cd4 <- rep_overlap_tra_cd4[ rev(c(5, 4, 3, 2, 1, 7, 6, 12, 11, 10, 9, 8, 14, 13)),
+                                            rev(c(5, 4, 3, 2, 1, 7, 6, 12, 11, 10, 9, 8, 14, 13))]
+
+levels_names <- colnames(rep_overlap_tra_cd4)
+
+df_overlap_tra_cd4 <- rep_overlap_tra_cd4
+df_overlap_tra_cd4[df_overlap_tra_cd4 == 1] <- 0
+
+### plot dotplot of overlaps
+
+df_overlap_tra_cd4 <- df_overlap_tra_cd4 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df_overlap_tra_cd4, aes(x = factor(name, levels = levels_names), y = factor(id, levels = rev(levels_names)))) + 
+  geom_point(aes(size = value*100, colour = value*100)) + 
+  theme_bw() 
+
+g2 + scale_size_continuous(range=c(5,9)) +
+  geom_text(aes(label = round(value*100, digits = 1)), size = 3) + 
+  scale_colour_gradient2(low = "white", mid = "lightsteelblue", high = "salmon") +
+  theme(axis.text.x = element_text(angle = 90)) + ggtheme()
+
+#ggsave(file = "./final_fig/overlap_cd4_tra.png", width = 20, height = 16, units = "cm")
+#ggsave(file = "./final_fig/overlap_cd4_tra.svg", width = 20, height = 16, units = "cm")
+
+```
+
+```{r fig.width=14, fig.height=10}
+rep_overlap_tra_cd8 <- rep_overlap_tra_cd8[rev(c(12:14,8:11,5:7,1:4)),rev(c(12:14,8:11,5:7,1:4))]
+
+levels_names <- rev(colnames(rep_overlap_tra_cd8))
+
+df_overlap_tra_cd8 <- rep_overlap_tra_cd8
+df_overlap_tra_cd8[df_overlap_tra_cd8 == 1] <- 0
+
+### plot dotplot of overlaps
+
+df_overlap_tra_cd8 <- df_overlap_tra_cd8 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df_overlap_tra_cd8, aes(factor(name, levels = levels_names), factor(id, levels = rev(levels_names)))) + 
+  geom_point(aes(size = value*100, colour = value*100)) + 
+  theme_bw() 
+
+g2 + scale_size_continuous(range=c(5,9)) +
+  geom_text(aes(label = round(value*100, digits = 1)), size = 3) + 
+  scale_colour_gradient2(low = "white", mid = "lightsteelblue", high = "salmon") +
+  theme(axis.text.x = element_text(angle = 90)) + ggtheme()
+
+#ggsave(file = "./final_fig/overlap_cd8_tra.png", width = 20, height = 16, units = "cm")
+#ggsave(file = "./final_fig/overlap_cd8_tra.svg", width = 20, height = 16, units = "cm")
+
+```
+
+### A la violin
+
+```{r fig.width=3, fig.height=3}
+violin_tra_cd4 <- rep_overlap_tra_cd4 %>% 
+  rownames_to_column("sample1") %>% 
+  pivot_longer(!sample1, names_to = "sample2") %>% 
+  mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  mutate(sample1 = stringr::str_replace_all(sample1, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  separate(sample1, into = c("Cell_type1","Organ1","Strain1","Exp1"), remove = F)  %>% 
+  separate(sample2, into = c("Cell_type2","Organ2","Strain2","Exp2"), remove = F) %>% 
+  filter(value<1)
+
+
+violin_tra_cd8 <- rep_overlap_tra_cd8 %>% 
+  rownames_to_column("sample1") %>% 
+  pivot_longer(!sample1, names_to = "sample2") %>% 
+  mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  mutate(sample1 = stringr::str_replace_all(sample1, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  separate(sample1, into = c("Cell_type1","Organ1","Strain1","Exp1"), remove = F)  %>% 
+  separate(sample2, into = c("Cell_type2","Organ2","Strain2","Exp2"), remove = F) %>% 
+  filter(value<1)
+
+```
+
+```{r fig.width=3, fig.height=3}
+violin_tra_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD4 TRA Thymus") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.35)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_thy.png", width = 9.5, height = 9.5,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_thy.eps", width = 9.5, height = 9.5,  units = "cm")
+
+```
+
+```{r fig.width=3, fig.height=3}
+violin_tra_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD4 TRA LN") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.35)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_LN.png", width = 8, height = 8,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_LN.eps", width = 8, height = 8,  units = "cm")
+
+```
+
+
+```{r fig.width=3, fig.height=3}
+violin_tra_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD8 TRA Thymus") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.35)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_thy.png", width = 9.5, height = 9.5,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_thy.eps", width = 9.5, height = 9.5,  units = "cm")
+
+```
+
+```{r fig.width=3, fig.height=3}
+violin_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD8 TRA LN") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.35)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_LN.png", width = 8, height = 8, units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_LN.eps", width = 8, height = 8, units = "cm")
+
+```
+
+### TRB
+
+## Vsechny vzorky se vsema
+
+```{r}
+
+binary_trb <- excel_count_table_trb %>% 
+  mutate_at(vars(starts_with("CD")), .funs = binary) 
+
+binary_trb_longer <- binary_trb %>% select(starts_with("CD"), aaSeqCDR3) %>% pivot_longer(!aaSeqCDR3, names_to = "num_id")
+
+df_all4 <- data.frame("")
+
+for(j in levels(factor(binary_trb_longer$num_id))){
+  subset1 <- binary_trb_longer %>% filter(num_id == j & value>0) %>% pull("aaSeqCDR3")
+  vector_overlap <- c()
+  for(i in levels(factor(binary_trb_longer$num_id))){
+    subset2 <- binary_trb_longer %>% filter(num_id == i & value>0) %>% pull("aaSeqCDR3")
+    intersect_rep <- length(intersect(subset1, subset2))
+    total <- length(subset2)
+    vector_overlap <- c(vector_overlap,intersect_rep/total)
+  }
+  df <- as.data.frame(x = vector_overlap)
+  colnames(df) <- j
+  df
+  df_all4 <- cbind(df_all4, df)
+}
+
+df_all4 <- df_all4[,2:29]
+rownames(df_all4) <- colnames(df_all4)
+
+#write.csv(df_all4, "rep_overlap_trb.csv")
+```
+
+
+```{r fig.width=30, fig.height=25}
+df24 <- df_all4
+df24[df24 == 1] <- 0
+
+### plot dotplot of overlaps
+
+df25 <- df24 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df25, aes(id, factor(name, levels = rev(levels(factor(name)))))) + 
+  geom_point(aes(size = value*100, colour = value*100)) + 
+  theme_bw() 
+
+g2 + scale_size_continuous(range=c(7,12)) +
+  geom_text(aes(label = round(value*100, digits = 1))) + 
+  scale_colour_gradient2(low = "lightskyblue", mid = "lightsteelblue2", high = "salmon") +
+  theme(axis.text.x = element_text(angle = 90)) 
+
+
+```
+
+### Rozdelene na CD4 a CD8
+
+```{r fig.width=14, fig.height=10}
+
+rep_overlap_trb <- read_csv("rep_overlap_trb.csv") %>% column_to_rownames("...1")
+
+rep_overlap_trb_cd4 <- rep_overlap_trb[1:14,1:14]
+rep_overlap_trb_cd8 <- rep_overlap_trb[15:28,15:28]
+
+rep_overlap_trb_cd4 <- rep_overlap_trb_cd4[rev(c(13,14,8:12,6,7,1:5)),rev(c(13,14,8:12,6,7,1:5))]
+
+levels_names <- rev(colnames(rep_overlap_trb_cd4))
+
+
+df_overlap_trb_cd4 <- rep_overlap_trb_cd4
+df_overlap_trb_cd4[df_overlap_trb_cd4 == 1] <- 0
+
+### plot dotplot of overlaps
+
+df_overlap_trb_cd4 <- df_overlap_trb_cd4 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df_overlap_trb_cd4, aes(factor(name, levels = levels_names), factor(id, levels = rev(levels_names)))) + 
+  geom_point(aes(size = value*100, colour = value*100)) + 
+  theme_bw() 
+
+g2 + scale_size_continuous(range=c(5,9)) +
+  geom_text(aes(label = round(value*100, digits = 1)), size = 3) + 
+  scale_colour_gradient2(low = "white", mid = "lightsteelblue", high = "salmon") +
+  theme(axis.text.x = element_text(angle = 90)) + ggtheme()
+
+#ggsave(file = "./final_fig/overlap_cd4_trb.png", width = 20, height = 16, units = "cm")
+#ggsave(file = "./final_fig/overlap_cd4_trb.svg", width = 20, height = 16, units = "cm")
+
+```
+
+```{r fig.width=14, fig.height=10}
+rep_overlap_trb_cd8 <- rep_overlap_trb_cd8[rev(c(12:14,8:11,5:7,1:4)),rev(c(12:14,8:11,5:7,1:4))]
+
+levels_names <- rev(colnames(rep_overlap_trb_cd8))
+
+df_overlap_trb_cd8 <- rep_overlap_trb_cd8
+df_overlap_trb_cd8[df_overlap_trb_cd8 == 1] <- 0
+
+### plot dotplot of overlaps
+
+df_overlap_trb_cd8 <- df_overlap_trb_cd8 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df_overlap_trb_cd8, aes(factor(name, levels = levels_names), factor(id, levels = rev(levels_names)))) + 
+  geom_point(aes(size = value*100, colour = value*100)) + 
+  theme_bw() 
+
+g2 + scale_size_continuous(range=c(5,9)) +
+  geom_text(aes(label = round(value*100, digits = 1)), size = 3) + 
+  scale_colour_gradient2(low = "white", mid = "lightsteelblue", high = "salmon") +
+  theme(axis.text.x = element_text(angle = 90)) + ggtheme()
+
+#ggsave(file = "./final_fig/overlap_cd8_trb.png", width = 20, height = 16, units = "cm")
+#ggsave(file = "./final_fig/overlap_cd8_trb.svg", width = 20, height = 16, units = "cm")
+
+```
+
+### A la violin
+
+```{r fig.width=3, fig.height=3}
+
+violin_trb_cd4 <- rep_overlap_trb_cd4 %>% 
+  rownames_to_column("sample1") %>% 
+  pivot_longer(!sample1, names_to = "sample2") %>% 
+  mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  mutate(sample1 = stringr::str_replace_all(sample1, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  separate(sample1, into = c("Cell_type1","Organ1","Strain1","Exp1"), remove = F)  %>% 
+  separate(sample2, into = c("Cell_type2","Organ2","Strain2","Exp2"), remove = F) %>% 
+  filter(value<1)
+
+violin_trb_cd8 <- rep_overlap_trb_cd8 %>% 
+  rownames_to_column("sample1") %>% 
+  pivot_longer(!sample1, names_to = "sample2") %>% 
+  mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  mutate(sample1 = stringr::str_replace_all(sample1, pattern = "Lymph nodes", replacement = "LN"))  %>% 
+  separate(sample1, into = c("Cell_type1","Organ1","Strain1","Exp1"), remove = F)  %>% 
+  separate(sample2, into = c("Cell_type2","Organ2","Strain2","Exp2"), remove = F) %>% 
+  filter(value<1)
+```
+
+```{r fig.width=3, fig.height=3}
+violin_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD8 TRB Thymus") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.25)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_thy.png", width = 9.5, height = 9.5,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_thy.eps", width = 9.5, height = 9.5,  units = "cm")
+
+```
+
+```{r fig.width=3, fig.height=3}
+violin_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD8 TRB LN") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.25)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_LN.png", width = 8, height = 8,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_LN.eps", width = 8, height = 8,  units = "cm")
+
+```
+
+```{r fig.width=3, fig.height=3}
+violin_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD4 TRB Thymus") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.20)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_thy.png", width = 9.5, height = 9.5,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_thy.eps", width = 9.5, height = 9.5,  units = "cm")
+
+```
+
+```{r fig.width=3, fig.height=3}
+violin_trb_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD4 TRB LN") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.20)) + xlab("")
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_LN.png", width = 8, height = 8,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_LN.eps", width = 8, height = 8,  units = "cm")
 
 ```
 
