@@ -64,13 +64,6 @@ Let's read the required files:
 merged_repertoires <- read.csv("merged_TCR_repertoires.csv")
 md <- read.csv("metadata_Lck.csv")
 
-counts_tra <- read_csv("count_table_tra.csv")
-counts_tra$...1 <- NULL
-
-counts_trb <- read_csv("count_table_trb.csv")
-counts_trb$...1 <- NULL
-
-
 ```
 
 # Count tables
@@ -92,7 +85,7 @@ count_table_tra <- merged_repertoires %>%
   dplyr::filter(chain == "TRA") %>% 
   dplyr::select(aaSeqCDR3, num_id, cloneCount)
 
-count_table_tra2 <- count_table_tra %>% 
+counts_tra <- count_table_tra %>% 
   pivot_wider(names_from = num_id, values_from = cloneCount, values_fill = 0, values_fn = sum)
 
 md2_tra <- merged_repertoires %>% filter(chain == "TRA") %>% group_by(aaSeqCDR3) %>% slice_head(n = 1)
@@ -110,7 +103,7 @@ excel_count_table_tra2 <- excel_count_table_tra %>% dplyr::select(1, 31, 32, 30,
 Here, we show the resulting table for TRA:
 
 ```{r}
-kable(excel_count_table_tra2 %>% head) %>%
+kable(ExpData(data=excel_count_table_tra2, type=2)) %>%
   kable_styling(full_width = F, font_size = 11, 
                 bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
@@ -121,7 +114,7 @@ count_table_trb <- merged_repertoires %>%
   dplyr::filter(chain == "TRB") %>% 
   dplyr::select(aaSeqCDR3, num_id, cloneCount)
 
-count_table_trb2 <- count_table_trb %>% 
+counts_trb <- count_table_trb %>% 
   pivot_wider(names_from = num_id, values_from = cloneCount, values_fill = 0, values_fn = sum)
 
 md2_trb <- merged_repertoires %>% 
@@ -149,57 +142,11 @@ excel_count_table_trb2 <- excel_count_table_trb %>%
 Here, we show the resulting table for TRB:
 
 ```{r}
-kable(excel_count_table_trb2 %>% head) %>%
+kable(ExpData(data=excel_count_table_trb2, type=2)) %>%
   kable_styling(full_width = F, font_size = 11, 
                 bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
-
-# Prop tables and less than 5
-
-Prop table TRA
-
-```{r}
-
-excel_count_table_tra3 <- excel_count_table_tra2 %>% mutate(nkt_trav11_traj18 = if_else(
-    (grepl(allVHitsWithScore, pattern = "TRAV11") & (grepl(allJHitsWithScore, pattern = "TRAJ18"))),"yes","no"))
-
-excel_count_table_tra4 <- excel_count_table_tra3 %>% filter(nkt_trav11_traj18 == "no")
-
-count_table_tra4 <- as.matrix(excel_count_table_tra4[,5:32])
-rownames(count_table_tra4) <- excel_count_table_tra4$aaSeqCDR3
-
-tra4_norm <- scale(count_table_tra4, center=FALSE, scale=colSums(count_table_tra4))
-
-prop.table.tra <- cbind(tra4_norm, excel_count_table_tra4 %>% select(-starts_with("CD")) ) 
-
-prop.table.tra2 <- prop.table.tra %>% dplyr::select(29, 31, 30, 32, 1:28)
-
-prop.table.tra2 %>% head
-ExpData(data=prop.table.tra2, type=2)
-
-```
-
-Prop table TRB
-
-```{r}
-excel_count_table_trb3 <- excel_count_table_trb2 %>% 
-  mutate(nkt_trav11_traj18 = "no")
-
-count_table_trb4 <- as.matrix(excel_count_table_trb3[,5:32])
-rownames(count_table_trb4) <- excel_count_table_trb3$aaSeqCDR3
-
-
-trb4_norm <- scale(count_table_trb4, center=FALSE, scale=colSums(count_table_trb4))
-
-prop.table.trb <- cbind(trb4_norm, excel_count_table_trb %>% select(-starts_with("CD")) ) 
-colnames(prop.table.trb)
-prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 30, 32, 1:28)
-
-
-prop.table.trb2 %>% head
-ExpData(data=prop.table.trb2, type=2)
-```
 
 # Gene segment usage analysis
 
@@ -539,7 +486,7 @@ p05 <- nkt_table_trbv1 %>%
 #ggsave("./final_fig/nkt/pct_nkt_trbv1_cd4.eps", width = 8, height = 8, units = "cm")
 
 ## CD8
-p05 <- nkt_table_trbv1 %>% 
+p06 <- nkt_table_trbv1 %>% 
   filter(Cell_type == "CD8") %>% 
   ggplot(aes(y = freq*100, x = factor(sample_type, levels = levels_cd8))) +
   stat_summary(fun = "mean",
@@ -658,13 +605,11 @@ In this part we explore the similarity of TCR repertoires of different samples u
 
 We will calculate the distances from a filtered matrix of proportions, in which we filtered out the CDR3 sequences that are present in less than five CD4 or in less than five CD8 samples. 
 
+## Preparing filtered normalized count matrices
+
 First, we will prepare the filtered normalized count matrix. 
 
-## less than 5 removed
-
-## CD4
-
-Remove CDR3s with occurrence in less than 5 samples
+Below, we find and save the CDR3 amino acid sequences, which are present in 5 or more samples out of 14 CD4 samples, or in 5 or more samples out of 14 CD8 samples. 
 
 ```{r}
 
@@ -680,6 +625,7 @@ keep_tra_cd4 <- excel_count_table_tra %>%
 keep_tra_cd4$sum <- rowSums((keep_tra_cd4 %>% select(-aaSeqCDR3)))
 
 keep_tra_cd4$keep <- ifelse(keep_tra_cd4$sum>4,1,0)
+keep_tra_cd4$orig <- ifelse(keep_tra_cd4$sum>0,1,0)
 
 keep_tra_cd4_sequences <- pull(keep_tra_cd4 %>% filter(keep == 1), aaSeqCDR3)
 
@@ -689,16 +635,9 @@ keep_trb_cd4 <- excel_count_table_trb %>% select(aaSeqCDR3, starts_with("CD4")) 
 keep_trb_cd4$sum <- rowSums((keep_trb_cd4 %>% select(-aaSeqCDR3)))
 
 keep_trb_cd4$keep <- ifelse(keep_trb_cd4$sum>4,1,0)
+keep_trb_cd4$orig <- ifelse(keep_trb_cd4$sum>0,1,0)
 
 keep_trb_cd4_sequences <- pull(keep_trb_cd4 %>% filter(keep == 1), aaSeqCDR3)
-
-```
-
-## CD8
-
-Remove CDR3s with occurrence in less than 5 samples
-
-```{r}
 
 # TRA
 keep_tra_cd8 <- excel_count_table_tra %>% 
@@ -712,6 +651,7 @@ keep_tra_cd8 <- excel_count_table_tra %>%
 keep_tra_cd8$sum <- rowSums((keep_tra_cd8 %>% select(-aaSeqCDR3)))
 
 keep_tra_cd8$keep <- ifelse(keep_tra_cd8$sum>4,1,0)
+keep_tra_cd8$orig <- ifelse(keep_tra_cd8$sum>0,1,0)
 
 keep_tra_cd8_sequences <- pull(keep_tra_cd8 %>% filter(keep == 1), aaSeqCDR3)
 
@@ -721,14 +661,38 @@ keep_trb_cd8 <- excel_count_table_trb %>% select(aaSeqCDR3, starts_with("CD8")) 
 keep_trb_cd8$sum <- rowSums((keep_trb_cd8 %>% select(-aaSeqCDR3)))
 
 keep_trb_cd8$keep <- ifelse(keep_trb_cd8$sum>4,1,0)
+keep_trb_cd8$orig <- ifelse(keep_trb_cd8$sum>0,1,0)
 
 keep_trb_cd8_sequences <- pull(keep_trb_cd8 %>% filter(keep == 1), aaSeqCDR3)
 
+
+cdr3_count_table <- data.frame(Sample = c("CD4 TRA","CD4 TRB","CD8 TRA","CD8 TRB"),
+                               `Count before filtering` = c(
+                                 length(pull(keep_tra_cd4 %>% filter(orig == 1), aaSeqCDR3)),
+                                 length(pull(keep_trb_cd4 %>% filter(orig == 1), aaSeqCDR3)),
+                                 length(pull(keep_tra_cd8 %>% filter(orig == 1), aaSeqCDR3)),
+                                 length(pull(keep_trb_cd8 %>% filter(orig == 1), aaSeqCDR3))),
+                               `Count after filtering` = c(
+                                 length(pull(keep_tra_cd4 %>% filter(keep == 1), aaSeqCDR3)),
+                                 length(pull(keep_trb_cd4 %>% filter(keep == 1), aaSeqCDR3)),
+                                 length(pull(keep_tra_cd8 %>% filter(keep == 1), aaSeqCDR3)),
+                                 length(pull(keep_trb_cd8 %>% filter(keep == 1), aaSeqCDR3))))
+
 ```
 
-## TRB
+Here you can check the counts of CDR3 sequences before and after filtering. 
 
 ```{r}
+kable(cdr3_count_table) %>%
+  kable_styling(full_width = F, font_size = 11, 
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+Now we will create filtered tables with the abundant sequences.
+
+```{r}
+
+# TRB
 excel_count_table_trb3_filter <- excel_count_table_trb2  %>% filter(aaSeqCDR3 %in% keep_trb_cd4_sequences | aaSeqCDR3 %in% keep_trb_cd8_sequences) 
 
 count_table_trb4_filter <- as.matrix(excel_count_table_trb3_filter[,5:32])
@@ -737,12 +701,8 @@ rownames(count_table_trb4_filter) <- excel_count_table_trb3_filter$aaSeqCDR3
 trb4_norm_filter <- scale(count_table_trb4_filter, center=FALSE, scale=colSums(count_table_trb4_filter))
 
 prop.table.trb_filter <- cbind(trb4_norm_filter, excel_count_table_trb3_filter %>% select(-starts_with("CD")) )
-```
 
-
-## TRA
-
-```{r}
+# TRA
 excel_count_table_tra3_filter <- excel_count_table_tra3  %>% filter(aaSeqCDR3 %in% keep_tra_cd4_sequences | aaSeqCDR3 %in% keep_tra_cd8_sequences) %>% filter(nkt_trav11_traj18 == "no")
 
 count_table_tra4_filter <- as.matrix(excel_count_table_tra3_filter[,5:32])
@@ -755,6 +715,7 @@ prop.table.tra_filter <- cbind(tra4_norm_filter, excel_count_table_tra3_filter %
 colnames(prop.table.tra_filter)
 ```
 
+Last, we will select the columns of the filtered table corresponding to CD4 and CD8 cells. We will remove the rows in which there are only zeros for the subset of CD4 or CD8 cells, respectively. 
 
 ```{r}
 prop.table.tra2_filter.cd4 <- prop.table.tra_filter[,1:14]
@@ -774,8 +735,7 @@ prop.table.trb2_filter.cd8$sum <- rowSums(prop.table.trb2_filter.cd8)
 prop.table.trb2_filter.cd8 <- prop.table.trb2_filter.cd8 %>% filter(sum >0) %>% select(-sum)
 ```
 
-
-## TRA + TRB together
+## PCA plots
 
 ### CD4
 
@@ -875,37 +835,11 @@ fviz_pca_ind(res.pca.merge.cd8,
 
 ## TRA
 
-```{r fig.width=4, fig.height=3}
-res.pca <- prcomp(t(prop.table.tra_filter[,1:28]), scale = TRUE)
-
-
-md  <-  colnames(prop.table.tra_filter[,1:28])  %>% 
-  as.data.frame() %>% 
-  mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
-  separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-
-```
-
 ### CD4
 
 ```{r fig.width=4, fig.height=3}
-## All
 
-prop.table.tra2_filter.cd4 <- prop.table.tra_filter[,1:14]
-prop.table.tra2_filter.cd4$sum <- rowSums(prop.table.tra2_filter.cd4)
-
-prop.table.tra2_filter.cd4 <- prop.table.tra2_filter.cd4 %>% filter(sum >0) %>% select(-sum)
-
-res.pca.tra.cd4 <- prcomp(t(prop.table.tra2_filter.cd4), scale = TRUE, center = T)
-
-mdres.pca.tra.cd4  <-  colnames(prop.table.tra_filter[,1:14])  %>% 
-  as.data.frame() %>% 
-  mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
-  separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
-  
-# LN
-prop.table.tra2_filter %>% colnames
+## LN
 prop.table.tra2_filter.cd4.ln <- prop.table.tra_filter[,1:7]
 prop.table.tra2_filter.cd4.ln$sum <- rowSums(prop.table.tra2_filter.cd4.ln)
 
@@ -929,11 +863,12 @@ fviz_pca_ind(res.pca.tra.cd4.ln,
                   color = as.factor(mdres.pca.tra.cd4.ln$Strain))) +
   geom_hline(yintercept = 0, color = "grey20") +
   geom_vline(xintercept = 0, color = "grey20") 
+
 #ggsave("final_fig/pca/cd4_tra_ln.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd4_tra_ln.svg", width = 2.6, height = 1.7)
 
-# Thymus
 
+## Thymus
 prop.table.tra2_filter.cd4.thy <- prop.table.tra_filter[,8:14]
 prop.table.tra2_filter.cd4.thy$sum <- rowSums(prop.table.tra2_filter.cd4.thy)
 
@@ -957,6 +892,7 @@ fviz_pca_ind(res.pca.tra.cd4.thy,
   geom_hline(yintercept = 0, color = "grey20") +
   geom_vline(xintercept = 0, color = "grey20") +
   ggtheme()
+
 #ggsave("final_fig/pca/cd4_tra_thy.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd4_tra_thy.svg", width = 2.6, height = 1.7)
 
@@ -965,8 +901,8 @@ fviz_pca_ind(res.pca.tra.cd4.thy,
 ### CD8
 
 ```{r fig.width=4, fig.height=3}
-## All
 
+## All
 prop.table.tra2_filter.cd8 <- prop.table.tra_filter[,15:28]
 prop.table.tra2_filter.cd8$sum <- rowSums(prop.table.tra2_filter.cd8)
 
@@ -979,8 +915,7 @@ mdres.pca.tra.cd8  <-  colnames(prop.table.tra2_filter[,15:28])  %>%
   mutate(sample = stringr::str_replace_all(., pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
-
-# LN
+## LN
 prop.table.tra2_filter %>% colnames
 prop.table.tra2_filter.cd8.ln <- prop.table.tra_filter[,15:21]
 prop.table.tra2_filter.cd8.ln$sum <- rowSums(prop.table.tra2_filter.cd8.ln)
@@ -1004,11 +939,11 @@ fviz_pca_ind(res.pca.tra.cd8.ln,
                   color = as.factor(mdres.pca.tra.cd8.ln$Strain))) +
   geom_hline(yintercept = 0, color = "grey20") +
   geom_vline(xintercept = 0, color = "grey20") 
+
 #ggsave("final_fig/pca/cd8_tra_ln.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd8_tra_ln.svg", width = 2.6, height = 1.7)
 
-# Thymus
-
+## Thymus
 prop.table.tra2_filter %>% colnames
 prop.table.tra2_filter.cd8.thy <- prop.table.tra_filter[,22:28]
 prop.table.tra2_filter.cd8.thy$sum <- rowSums(prop.table.tra2_filter.cd8.thy)
@@ -1032,9 +967,9 @@ fviz_pca_ind(res.pca.tra.cd8.thy,
                   color = as.factor(mdres.pca.tra.cd8.thy$Strain))) +
   geom_hline(yintercept = 0, color = "grey20") +
   geom_vline(xintercept = 0, color = "grey20") 
+
 #ggsave("final_fig/pca/cd8_tra_thy.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd8_tra_thy.svg", width = 2.6, height = 1.7)
-
 ```
 
 ## TRB
@@ -1069,7 +1004,7 @@ mdres.pca.trb.cd4  <-  colnames(prop.table.trb_filter[,5:18])  %>%
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
  
 
-# LN
+## LN
 prop.table.trb_filter %>% colnames
 prop.table.trb2_filter.cd4.ln <- prop.table.trb_filter[,5:11]
 prop.table.trb2_filter.cd4.ln$sum <- rowSums(prop.table.trb2_filter.cd4.ln)
@@ -1097,8 +1032,7 @@ fviz_pca_ind(res.pca.trb.cd4.ln,
 #ggsave("final_fig/pca/cd4_trb_ln.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd4_trb_ln.svg", width = 2.6, height = 1.7)
 
-# Thymus
-
+## Thymus
 prop.table.trb_filter %>% colnames
 prop.table.trb2_filter.cd4.thy <- prop.table.trb_filter[,12:18]
 prop.table.trb2_filter.cd4.thy$sum <- rowSums(prop.table.trb2_filter.cd4.thy)
@@ -1145,7 +1079,7 @@ mdres.pca.trb.cd8  <-  colnames(prop.table.trb_filter[,19:32])  %>%
   separate(sample, into = c("Cell_type","Organ","Strain","Exp"))
   
 
-# LN
+## LN
 prop.table.trb_filter %>% colnames
 prop.table.trb2_filter.cd8.ln <- prop.table.trb_filter[,19:25]
 prop.table.trb2_filter.cd8.ln$sum <- rowSums(prop.table.trb2_filter.cd8.ln)
@@ -1173,8 +1107,7 @@ fviz_pca_ind(res.pca.trb.cd8.ln,
 #ggsave("final_fig/pca/cd8_trb_ln.svg", width = 2.6, height = 1.7)
 
 
-# Thymus
-
+## Thymus
 prop.table.trb_filter %>% colnames
 prop.table.trb2_filter.cd8.thy <- prop.table.trb_filter[,26:32]
 prop.table.trb2_filter.cd8.thy$sum <- rowSums(prop.table.trb2_filter.cd8.thy)
@@ -1204,6 +1137,11 @@ fviz_pca_ind(res.pca.trb.cd8.thy,
 ```
 
 # Diversity index
+
+```{r}
+md <- read.csv("metadata_Lck.csv")
+```
+
 
 ```{r}
 
@@ -1404,36 +1342,73 @@ ylab("Chao index estimate") +
 
 # Top20 WT LN sequences
 
-```{r}
-topclones <- prop.table.trb_filter %>% mutate(topclones_ln_cd4 = (`CD4 Lymph nodes WT Exp02`+
-                                                                       `CD4 Lymph nodes WT Exp03`)/2,
-                                               topclones_ln_cd8 = (`CD8 Lymph nodes WT Exp01`+
-                                                                       `CD8 Lymph nodes WT Exp02`+
-                                                                       `CD8 Lymph nodes WT Exp03`)/3)
-
-cd4_topclones_20sequences_trb <- pull(topclones %>% slice_max(order_by = topclones_ln_cd4, n = 20), aaSeqCDR3)
-cd8_topclones_20sequences_trb <- pull(topclones %>% slice_max(order_by = topclones_ln_cd8, n = 20), aaSeqCDR3)
-```
+In the next analyses, we will figure out whether the sequences that are abundant in the periphery of WT animals are also present in LckKO animals. We will select the top 20 most abundant sequences from the lymph nodes of WT animals by calculating the average normalized frequency:
 
 ```{r}
-topclones <- prop.table.tra_filter %>% mutate(topclones_ln_cd4 = (`CD4 Lymph nodes WT Exp02`+
-                                                                       `CD4 Lymph nodes WT Exp03`)/2,
-                                               topclones_ln_cd8 = (`CD8 Lymph nodes WT Exp01`+
-                                                                       `CD8 Lymph nodes WT Exp02`+
-                                                                       `CD8 Lymph nodes WT Exp03`)/3)
+## TRA
+topclones <- prop.table.tra_filter %>% 
+  mutate(topclones_ln_cd4 = (`CD4 Lymph nodes WT Exp02`+
+                               `CD4 Lymph nodes WT Exp03`)/2,
+         topclones_ln_cd8 = (`CD8 Lymph nodes WT Exp01`+
+                               `CD8 Lymph nodes WT Exp02`+
+                               `CD8 Lymph nodes WT Exp03`)/3)
 
-cd4_topclones_20sequences_tra <- pull(topclones %>% slice_max(order_by = topclones_ln_cd4, n = 20), aaSeqCDR3)
-cd8_topclones_20sequences_tra <- pull(topclones %>% slice_max(order_by = topclones_ln_cd8, n = 20), aaSeqCDR3)
+cd4_topclones_20sequences_tra <-
+  pull(topclones %>% slice_max(order_by = topclones_ln_cd4, n = 20),
+       aaSeqCDR3)
+cd8_topclones_20sequences_tra <-
+  pull(topclones %>% slice_max(order_by = topclones_ln_cd8, n = 20),
+       aaSeqCDR3)
 
+## TRB
+topclones <- prop.table.trb_filter %>% 
+  mutate(topclones_ln_cd4 = (`CD4 Lymph nodes WT Exp02`+
+                               `CD4 Lymph nodes WT Exp03`)/2,
+         topclones_ln_cd8 = (`CD8 Lymph nodes WT Exp01`+
+                               `CD8 Lymph nodes WT Exp02`+
+                               `CD8 Lymph nodes WT Exp03`)/3)
+
+cd4_topclones_20sequences_trb <- pull(topclones %>% 
+                                        slice_max(order_by = topclones_ln_cd4, n = 20), aaSeqCDR3)
+cd8_topclones_20sequences_trb <- pull(topclones %>% 
+                                        slice_max(order_by = topclones_ln_cd8, n = 20), aaSeqCDR3)
 ```
 
+Top 20 most abundant TRA sequences in CD4 WT LNs:
 
-## Summary plot
+```{r}
+cd4_topclones_20sequences_tra
+```
+
+Top 20 most abundant TRB sequences in CD4 WT LNs:
+
+```{r}
+cd4_topclones_20sequences_trb
+```
+
+Top 20 most abundant TRA sequences in CD8 WT LNs:
+
+```{r}
+cd8_topclones_20sequences_tra
+```
+
+Top 20 most abundant TRB sequences in CD8 WT LNs:
+
+```{r}
+cd8_topclones_20sequences_trb
+```
+
+## Summary plots - percentage of the repertoire
+
+Now we will investigate what is the percentage of the repertoire of each sample that is occupied by the top20 WT LN sequences that we identified earlier. We will plot the results.
 
 ### CD4 TRA
 
 ```{r fig.width=3, fig.height=3}
-cd4_topclones_rep_pct <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6) 
+cd4_topclones_rep_pct <- prop.table.tra2 %>% 
+  filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% 
+  select(aaSeqCDR3, starts_with("CD4")) %>% 
+  select(1,14,15,9:13,7,8,2:6) 
 
 cd4_topclones_rep_pct2 <- as.data.frame(colSums(cd4_topclones_rep_pct[,2:15]))
 colnames(cd4_topclones_rep_pct2) <- "value"
@@ -1442,10 +1417,9 @@ cd4_topclones_rep_pct2 <- cd4_topclones_rep_pct2 %>%
   rownames_to_column("sample") %>% 
   mutate(sample = stringr::str_replace_all(sample, pattern = "Lymph nodes", replacement = "LN")) %>% 
   separate(sample, into = c("Cell_type","Organ","Strain","Exp")) %>% 
-  mutate(Cell_type_organ = factor(paste(Organ, Strain), levels = c("Thymus WT","Thymus CA", "Thymus CAKR",
-                                                                   "LN WT","LN CA", "LN CAKR" )))
-
-cd4_topclones_rep_pct2
+  mutate(Cell_type_organ = factor(paste(Organ, Strain), 
+                                  levels = c("Thymus WT", "Thymus CA", "Thymus CAKR",
+                                             "LN WT", "LN CA", "LN CAKR")))
 
 cd4_topclones_rep_pct2 %>% 
   filter(Organ == "LN") %>% 
@@ -1470,8 +1444,12 @@ cd4_topclones_rep_pct2 %>%
 ```
 
 ### CD4 TRB
+
 ```{r fig.width=3, fig.height=3}
-cd4_topclones_rep_pct <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6) 
+cd4_topclones_rep_pct <- prop.table.trb2 %>% 
+  filter(aaSeqCDR3 %in% cd4_topclones_20sequences_trb) %>% 
+  select(aaSeqCDR3, starts_with("CD4")) %>% 
+  select(1,14,15,9:13,7,8,2:6) 
 
 cd4_topclones_rep_pct2 <- as.data.frame(colSums(cd4_topclones_rep_pct[,2:15]))
 colnames(cd4_topclones_rep_pct2) <- "value"
@@ -1482,8 +1460,6 @@ cd4_topclones_rep_pct2 <- cd4_topclones_rep_pct2 %>%
   separate(sample, into = c("Cell_type","Organ","Strain","Exp")) %>% 
   mutate(Cell_type_organ = factor(paste(Organ, Strain), levels = c("Thymus WT","Thymus CA", "Thymus CAKR",
                                                                    "LN WT","LN CA", "LN CAKR" )))
-
-cd4_topclones_rep_pct2
 
 cd4_topclones_rep_pct2 %>% 
   filter(Organ == "LN") %>% 
@@ -1502,18 +1478,18 @@ cd4_topclones_rep_pct2 %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,NA)) + xlab("")
 
-
 #ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd4.png", width = 5.4, height = 5.7, units = "cm")
 #ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd4.eps", width = 5.4, height = 5.7, units = "cm")
-
-
 
 ```
 
 ### CD8 TRA
 
 ```{r fig.width=3, fig.height=3}
-cd8_topclones_rep_pct <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5) 
+cd8_topclones_rep_pct <- prop.table.tra2 %>% 
+  filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% 
+  select(aaSeqCDR3, starts_with("CD8")) %>% 
+  select(1,13:15,9:12,6:8,2:5) 
 
 cd8_topclones_rep_pct2 <- as.data.frame(colSums(cd8_topclones_rep_pct[,2:15]))
 colnames(cd8_topclones_rep_pct2) <- "value"
@@ -1551,7 +1527,10 @@ cd8_topclones_rep_pct2 %>%
 
 ### CD8 TRB
 ```{r fig.width=3, fig.height=3}
-cd8_topclones_rep_pct <- prop.table.trb2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_trb) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5) 
+cd8_topclones_rep_pct <- prop.table.trb2 %>% 
+  filter(aaSeqCDR3 %in% cd8_topclones_20sequences_trb) %>% 
+  select(aaSeqCDR3, starts_with("CD8")) %>% 
+  select(1,13:15,9:12,6:8,2:5) 
 
 cd8_topclones_rep_pct2 <- as.data.frame(colSums(cd8_topclones_rep_pct[,2:15]))
 colnames(cd8_topclones_rep_pct2) <- "value"
@@ -1596,12 +1575,15 @@ cd8_topclones_rep_pct2 %>%
 ```{r fig.width=6, fig.height=8}
 
 # TRA
-cd4_topclones_heatmap_matrix <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD4")) %>% select(1,14,15,9:13,7,8,2:6)
+cd4_topclones_heatmap_matrix <- prop.table.tra2 %>% 
+  filter(aaSeqCDR3 %in% cd4_topclones_20sequences_tra) %>% 
+  select(aaSeqCDR3, starts_with("CD4")) %>% 
+  select(1,14,15,9:13,7,8,2:6)
 
 cd4_topclones_heatmap_matrix2 <- as.matrix(cd4_topclones_heatmap_matrix[,2:15])
 rownames(cd4_topclones_heatmap_matrix2) <- cd4_topclones_heatmap_matrix$aaSeqCDR3
 
-cd4_topclones_heatmap_matrix2 <- cd4_topclones_heatmap_matrix2[match( cd4_topclones_20sequences_tra, rownames(cd4_topclones_heatmap_matrix2)),]
+cd4_topclones_heatmap_matrix2 <- cd4_topclones_heatmap_matrix2[match(cd4_topclones_20sequences_tra, rownames(cd4_topclones_heatmap_matrix2)),]
 
 pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
 
@@ -1615,13 +1597,16 @@ pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 ```{r fig.width=6, fig.height=8}
 # TRA
 
-cd8_topclones_heatmap_matrix <- prop.table.tra2 %>% filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% select(aaSeqCDR3, starts_with("CD8")) %>% select(1,13:15,9:12,6:8,2:5)
+cd8_topclones_heatmap_matrix <- prop.table.tra2 %>% 
+  filter(aaSeqCDR3 %in% cd8_topclones_20sequences_tra) %>% 
+  select(aaSeqCDR3, starts_with("CD8")) %>% 
+  select(1,13:15,9:12,6:8,2:5)
   
 
 cd8_topclones_heatmap_matrix2 <- as.matrix(cd8_topclones_heatmap_matrix[,2:15])
 rownames(cd8_topclones_heatmap_matrix2) <- cd8_topclones_heatmap_matrix$aaSeqCDR3
 
-cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match( cd8_topclones_20sequences_tra, rownames(cd8_topclones_heatmap_matrix2)),]
+cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match(cd8_topclones_20sequences_tra, rownames(cd8_topclones_heatmap_matrix2)),]
 
 pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
 
@@ -1629,13 +1614,14 @@ pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 ```
 
 without 1st sequence
+
 ```{r fig.width=6, fig.height=8}
 ### without 1st sequence
 
 cd8_topclones_heatmap_matrix2 <- as.matrix(cd8_topclones_heatmap_matrix[2:20,2:15])
 rownames(cd8_topclones_heatmap_matrix2) <- cd8_topclones_heatmap_matrix$aaSeqCDR3[2:20]
 
-cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match( cd8_topclones_20sequences_tra[2:20], rownames(cd8_topclones_heatmap_matrix2)),]
+cd8_topclones_heatmap_matrix2 <- cd8_topclones_heatmap_matrix2[match(cd8_topclones_20sequences_tra[2:20], rownames(cd8_topclones_heatmap_matrix2)),]
 
 pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F)
 
