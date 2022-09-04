@@ -1191,10 +1191,7 @@ fviz_pca_ind(res.pca.trb.cd8.ln,
 ```
 
 # Diversity index
-
-```{r}
-```
-
+ To compare the diversity of the TCR repertoires of our samples, we will calculate the Chao1 index using the `Immunarch` package. Chao1 is a nonparameteric asymptotic estimator of species richness. The higher the Chao1 value, the more diverse repertoire in the sample. 
 
 ```{r}
 # Read metadata
