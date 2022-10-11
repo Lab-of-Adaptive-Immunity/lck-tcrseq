@@ -50,11 +50,11 @@ This document describes the analysis of TCR repertoires for the manuscript *"Uni
 * processing fastq files using the recommended [pRESTO workflow](https://international.neb.com/-/media/nebus/files/nebnext-chart-pdfs/nebnext-immune-sequencing-data-analysis-workflow-mouse.pdf?rev=7f21b23a3ce444e3bc4dcd57282402ba&hash=C0AE101CBA6C31B2A897A207D9EA6A4D) on Galaxy with default parameters
 * aligning processed fastq files using [MiXCR](https://mixcr.readthedocs.io/en/develop/)
 
-Raw data are deposited in the Sequence Read Archive (PRJNA872031). Processed files can be downloaded [download from Zenodo]( ############# ). The Zenodo archive contains the following files, which are needed to run this script:
+Raw data are deposited in the Sequence Read Archive (PRJNA872031). Processed files can be downloaded [from Zenodo]( ############# ). The Zenodo archive contains the following files, which are needed to run this script:
 
 * merged outputs from MiXCR `merged_TCR_repertoires.csv`
 * metadata file `metadata_Lck.csv`
-* count tables with raw counts of CDR3 TRA and TRB sequences in each sample `count_table_tra.csv`, `"count_table_trb.csv"`
+* count tables with raw counts of CDR3 TRA and TRB sequences in each sample `count_table_tra.csv`, `count_table_trb.csv`
 * TRA and TRB repertoires prepared for processing with the Immunarch package `immdata_tra.rds`, `immdata_trb.rds`
 
 Let's read the required files:
