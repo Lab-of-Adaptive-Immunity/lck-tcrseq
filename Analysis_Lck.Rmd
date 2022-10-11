@@ -176,9 +176,7 @@ prop.table.tra <- cbind(tra4_norm,
 prop.table.tra2 <- prop.table.tra %>% 
   dplyr::select(29, 31, 30, 32, 1:28)
 
-kable(prop.table.tra2 %>% head) %>%
-  kable_styling(full_width = T, font_size = 11, 
-                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+data.table(prop.table.tra2 %>% head) 
 ```
 
 Here comes the normalized table for TRA:
@@ -198,9 +196,7 @@ colnames(prop.table.trb)
 prop.table.trb2 <- prop.table.trb %>% dplyr::select(29, 31, 30, 32, 1:28)
 
 
-kable(prop.table.trb2 %>% head) %>%
-  kable_styling(full_width = T, font_size = 11, 
-                bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+data.table(prop.table.trb2 %>% head)
 ```
 
 # Gene segment usage analysis
@@ -224,6 +220,11 @@ cd4_thymus <- geneUsage(repFilter(immdata_tra,
                                  .query = list(Organ = include('Thymus'), Cell_type = include('CD4')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
 
 vis(cd4_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA Thymus CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+# source data
+write.csv(cd4_thymus, "source_data/FigED7_cd4_thymus_tra.csv")
+
+
 #ggsave("./final_fig/gene_usage_new/cd4_thymus_tra_just1segment.png", width = 60, height = 12, units = "cm") 
 #ggsave("./final_fig/gene_usage_new/cd4_thymus_tra_just1segment.svg", width = 60, height = 12, units = "cm")
 ```
@@ -238,6 +239,8 @@ cd4_ln <- geneUsage(repFilter(immdata_tra,
 
 vis(cd4_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA LN CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
 
+# source data
+write.csv(cd4_ln, "source_data/FigED7_cd4_ln_tra.csv")
 
 #ggsave("./final_fig/gene_usage_new/cd4_ln_tra_just1segment.png", width = 60, height = 12, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd4_ln_tra_just1segment.svg", width = 60, height = 12, units = "cm")
@@ -251,6 +254,10 @@ cd8_thymus <- geneUsage(repFilter(immdata_tra,
                                  .query = list(Organ = include('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
 
 vis(cd8_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA Thymus CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+# source data
+write.csv(cd8_thymus, "source_data/FigED7_cd8_thymus_tra.csv")
+
 #ggsave("./final_fig/gene_usage_new/cd8_thymus_tra_just1segment.png", width = 60, height = 12, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd8_thymus_tra_just1segment.svg", width = 60, height = 12, units = "cm")
 ```
@@ -263,6 +270,9 @@ cd8_ln <- geneUsage(repFilter(immdata_tra,
                                  .query = list(Organ = exclude('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trav")
 
 vis(cd8_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_tra$meta) + ggtitle("TRA LN CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+# source data
+write.csv(cd8_ln, "source_data/FigED7_cd8_ln_tra.csv")
 
 #ggsave("./final_fig/gene_usage_new/cd8_ln_tra_just1segment.png", width = 60, height = 12, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd8_ln_tra_just1segment.svg", width = 60, height = 12, units = "cm")
@@ -281,6 +291,9 @@ cd4_thymus <- geneUsage(repFilter(immdata_trb,
 
 vis(cd4_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB Thymus CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70")) 
   
+# source data
+write.csv(cd4_thymus, "source_data/FigED7_cd4_thymus_trb.csv")
+
 #ggsave("./final_fig/gene_usage_new/cd4_thymus_trb_just1segment.png", width = 20, height = 10, units = "cm") 
 #ggsave("./final_fig/gene_usage_new/cd4_thymus_trb_just1segment.svg", width = 20, height = 10, units = "cm")
 ```
@@ -295,6 +308,9 @@ cd4_ln <- geneUsage(repFilter(immdata_trb,
 
 vis(cd4_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB LN CD4") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
 
+# source data
+write.csv(cd4_ln, "source_data/FigED7_cd4_ln_trb.csv")
+
 #ggsave("./final_fig/gene_usage_new/cd4_ln_trb_just1segment.png", width = 20, height = 10, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd4_ln_trb_just1segment.svg", width = 20, height = 10, units = "cm")
 ```
@@ -307,6 +323,10 @@ cd8_thymus <- geneUsage(repFilter(immdata_trb,
                                  .query = list(Organ = include('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
 
 vis(cd8_thymus, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB Thymus CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+# source data
+write.csv(cd8_thymus, "source_data/FigED7_cd8_thymus_trb.csv")
+
 #ggsave("./final_fig/gene_usage_new/cd8_thymus_trb_just1segment.png", width = 20, height = 10, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd8_thymus_trb_just1segment.svg", width = 20, height = 10, units = "cm")
 ```
@@ -319,6 +339,9 @@ cd8_ln <- geneUsage(repFilter(immdata_trb,
                                  .query = list(Organ = exclude('Thymus'), Cell_type = include('CD8')))$data, .norm = T, .ambig = "maj", .quant = "count", .gene = "musmus.trbv")
 
 vis(cd8_ln, .by = c("Cell_type", "Organ","Mouse_strain"), .meta = immdata_trb$meta, .test = F) + ggtitle("TRB LN CD8") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70"))
+
+# source data
+write.csv(cd8_ln, "source_data/FigED7_cd8_ln_trb.csv")
 
 #ggsave("./final_fig/gene_usage_new/cd8_ln_trb_just1segment.png", width = 20, height = 10, units = "cm")
 #ggsave("./final_fig/gene_usage_new/cd8_ln_trb_just1segment.svg", width = 20, height = 10, units = "cm")
@@ -425,11 +448,11 @@ nkt_table_trbv1$nkt_sample <- "trbv1"
 nkt_table_trbv13_2$nkt_sample <- "trbv13_2"
 nkt_table_trbv29$nkt_sample <- "trbv29"
 
-nkt_table <- cbind(nkt_table_trb$num_id, nkt_table_trb$sample_type, nkt_table_trb$Exp, format(nkt_table_trb$freq, digits = 2), 
-                   format(nkt_table_trav11_traj18$freq, digits = 2),
-format(nkt_table_trbv1$freq, digits = 2), 
-format(nkt_table_trbv13_2$freq, digits = 2),
-                   format(nkt_table_trbv29$freq, digits = 2)) %>% as.data.frame
+nkt_table <- cbind(nkt_table_trb$num_id, nkt_table_trb$sample_type, nkt_table_trb$Exp, format(nkt_table_trb$freq*100, digits = 2), 
+                   format(nkt_table_trav11_traj18$freq*100, digits = 2),
+format(nkt_table_trbv1$freq*100, digits = 2), 
+format(nkt_table_trbv13_2$freq*100, digits = 2),
+                   format(nkt_table_trbv29$freq*100, digits = 2)) %>% as.data.frame
 
 colnames(nkt_table) <- c("num_id","Sample","Exp","All TRB NKT", "TRAV11-TRAJ18", "TRBV1","TRBV13-2","TRBV29")
 nkt_table <- nkt_table %>% mutate(Sample = paste(Sample, Exp)) %>% select(-num_id, -Exp) %>% arrange(Sample)
@@ -442,6 +465,8 @@ kable(nkt_table, format = "html") %>%
   kable_styling(full_width = F, font_size = 11, 
                 bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
+# source data
+write.csv(nkt_table, "source_data/FigED7b_nkt_cells.csv", row.names = F)
 ```
 
 
@@ -840,6 +865,10 @@ fviz_pca_ind(res.pca.merge.cd4,
   ggtheme() +
   theme(axis.text.x = element_text(angle = 0))
 
+
+# source data
+# write.csv(res.pca.merge.cd4$x, "source_data/pca_raw_cd4.csv")
+
 #ggsave("final_fig/pca/cd4.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd4.svg", width = 2.6, height = 1.7)
 ```
@@ -891,6 +920,10 @@ fviz_pca_ind(res.pca.merge.cd8,
                   color = as.factor(mdres.pca.merge.cd8$Strain))) + 
   scale_shape_manual(values = c(8,8,8,15,15)) +
   ggtheme()
+
+# source data
+write.csv(res.pca.merge.cd8$x, "source_data/pca_raw_cd8.csv")
+
 #ggsave("final_fig/pca/cd8.png", width = 2.6, height = 1.7)
 #ggsave("final_fig/pca/cd8.svg", width = 2.6, height = 1.7)
 ```
