@@ -40,6 +40,8 @@ vignettes/*.pdf
 *.png
 *.svg
 *.csv
+*.eps
+*.rds
 
 # R Environment Variables
 .Renviron
