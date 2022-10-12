@@ -1226,6 +1226,8 @@ fviz_pca_ind(res.pca.trb.cd8.ln,
 # Diversity index
  To compare the diversity of the TCR repertoires of our samples, we will calculate the Chao1 index using the `Immunarch` package. Chao1 is a nonparameteric asymptotic estimator of species richness. The higher the Chao1 value, the more diverse repertoire in the sample. 
 
+We will calculate the diversity index of TCRa chains without iNKT chains, so we will first exclude them.
+
 ```{r}
 # Read metadata
 md <- read.csv("metadata_Lck.csv")
@@ -1241,19 +1243,29 @@ immdata_tra_wonkt <- repFilter(immdata_tra, "by.clonotype",
 ## ALL TRA
 repDiversity(immdata_tra_wonkt$data) %>% vis(.by = c( "Mouse_strain"), .meta = immdata_tra$meta, 
   .signif.label.size = 0) + ggtitle("TRA without NKT") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70")) + ggtitle("all TRA", subtitle = "")
+
+# source data
+write.csv(repDiversity(immdata_tra_wonkt$data), "rep_diversity_tra.csv")
+
 #ggsave("./final_fig/diversity/chao_tra_wonkt_sign.png", width = 8, height = 13, units = "cm")
 #ggsave("./final_fig/diversity/chao_tra_wonkt_sign.svg", width = 8, height = 13, units = "cm")
 ```
 
+The TCRb repertoire doesn't need any filtering, so we can use it as it is.
 
 ```{r}
 ## ALL TRB
 repDiversity(immdata_trb$data) %>% vis(.by = c( "Mouse_strain"), .meta = immdata_trb$meta, 
   .signif.label.size = 0) + ggtitle("TRB without NKT") + scale_fill_manual(values = c("dodgerblue","indianred2","gray70")) + ggtitle("all TRB", subtitle = "")
+
+# source data
+write.csv(repDiversity(immdata_trb$data), "rep_diversity_trb.csv")
+
 #ggsave("./final_fig/diversity/chao_trb_sign.png", width = 8, height = 13, units = "cm")
 #ggsave("./final_fig/diversity/chao_trb_sign.svg", width = 8, height = 13, units = "cm")
 ```
 
+Next, we divide samples by tissue and by cell type (CD4 versus CD8).
 
 ```{r}
 ## Chao index
@@ -1333,6 +1345,7 @@ chao_tra2 %>% filter(Cell_type == "CD8") %>%
 #ggsave("./final_fig/diversity/chao_cd8_tra.eps", width = 8, height = 10, units = "cm")
 
 ```
+
 
 ```{r}
 
@@ -1532,6 +1545,12 @@ cd4_topclones_rep_pct2 %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,NA)) + xlab("")
 
+# source data
+write.csv(cd4_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>%
+  mutate(value = value*100), 
+  file = "topclones_cd4_tra.csv")
+
 #ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd4.png", width = 5, height = 5.7, units = "cm")
 #ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd4.eps", width = 5, height = 5.7, units = "cm")
 
@@ -1571,6 +1590,12 @@ cd4_topclones_rep_pct2 %>%
   theme(axis.text.x = element_text(angle = 90)) +
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,NA)) + xlab("")
+
+# source data
+write.csv(cd4_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>%
+  mutate(value = value*100), 
+  file = "topclones_cd4_trb.csv")
 
 #ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd4.png", width = 5.4, height = 5.7, units = "cm")
 #ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd4.eps", width = 5.4, height = 5.7, units = "cm")
@@ -1614,6 +1639,12 @@ cd8_topclones_rep_pct2 %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,NA)) + xlab("")
 
+# source data
+write.csv(cd8_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>%
+  mutate(value = value*100), 
+  file = "topclones_cd8_tra.csv")
+
 #ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd8.png", width = 5, height = 5.7, units = "cm")
 #ggsave("./final_fig/20topseqs/20topseqs_pct_tra_cd8.eps", width = 5, height = 5.7, units = "cm")
 
@@ -1655,6 +1686,12 @@ cd8_topclones_rep_pct2 %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,NA)) + xlab("")
 
+# source data
+write.csv(cd8_topclones_rep_pct2 %>% 
+  filter(Organ == "LN") %>%
+  mutate(value = value*100), 
+  file = "topclones_cd8_trb.csv")
+
 #ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd8.png", width = 5.4, height = 5.7, units = "cm")
 #ggsave("./final_fig/20topseqs/20topseqs_pct_trb_cd8.eps", width = 5.4, height = 5.7, units = "cm")
 
@@ -1662,9 +1699,13 @@ cd8_topclones_rep_pct2 %>%
 
 # Heatmaps
 
+In this part, we will use heatmaps to visualize the frequency of the sequences that were the most abundant (top20) in the periphery of WT mice in all samples. In the supplementary figure in the manuscript, reference samples (periphery of WT mice) are highlighted with black border, which was added manually in a graphics editor. 
+
 ## TRA
 
 ### CD4
+
+Heatmap showing the frequency of the top20 CD4 TRA sequences from WT LNs in all samples. 
 
 ```{r fig.width=6, fig.height=8}
 
@@ -1683,10 +1724,11 @@ pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 
 #ggsave(plot = pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd4_tra_noscale.svg")
 
-
 ```
 
 ### CD8 
+
+Heatmap showing the frequency of the top20 CD8 TRA sequences from WT LNs in all samples. 
 
 ```{r fig.width=6, fig.height=8}
 # TRA
@@ -1707,7 +1749,8 @@ pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 #ggsave(plot = pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluster_cols = F), "final_fig/heatmap_top20_ordered/cd8_tra_noscale.svg")
 ```
 
-without 1st sequence
+As we can see that the first sequence takes up the most percentage of the repertoire, we will also plot another heatmap without the first sequence. 
+
 
 ```{r fig.width=6, fig.height=8}
 ### without 1st sequence
@@ -1726,6 +1769,8 @@ pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 
 ### CD4
 
+Heatmap showing the frequency of the top20 CD4 TRB sequences from WT LNs in all samples. 
+
 ```{r fig.width=6, fig.height=8}
 
 # trb
@@ -1743,6 +1788,8 @@ pheatmap(cd4_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 ```
 
 ### CD8
+
+Heatmap showing the frequency of the top20 CD8 TRB sequences from WT LNs in all samples. 
 
 ```{r fig.width=6, fig.height=8}
 # trb
@@ -1765,8 +1812,13 @@ pheatmap(cd8_topclones_heatmap_matrix2, scale = "none", cluster_rows = F, cluste
 
 # Repertoire overlap
 
-```{r}
+In this part we will investigate the overlap between repertoires of different samples. We will plot the percentage of overlapping TCR alpha or TCR beta CDR3 sequences in all pairs of samples in a matrix.
 
+## TRA
+
+Let's focus on the TRA now. We will remove iNKT sequences and keep only the information whether the CDR3 sequence is present in the sample or not (i.e., we will keep only unique occurrences).
+
+```{r}
 binary_tra <- excel_count_table_tra %>% 
   mutate(nkt_trav11_traj18 = if_else(
     (grepl(allVHitsWithScore, pattern = "TRAV11") | 
@@ -1774,17 +1826,14 @@ binary_tra <- excel_count_table_tra %>%
   filter(nkt_trav11_traj18 == "no") %>% 
   mutate_at(vars(starts_with("CD")), .funs = binary) 
 
-# count_overlap <- function(df, column_number){
-#   repertoire <- df %>% select(vars(column_number), aaSeqCDR3) %>% filter(vars(column_number)>0) %>% pull("aaSeqCDR3")
-#   nrow_column <- length(repertoire)
-#   intersect_rept <- length(intersect(repertoire, most_diverse_repertoire))
-#   pct <- intersect_rept/length()
-#   return(x)
-# }
-
 binary_tra_longer <- binary_tra %>% select(starts_with("CD"), aaSeqCDR3) %>% pivot_longer(!aaSeqCDR3, names_to = "num_id")
 
-df_all4 <- data.frame("")
+```
+
+We will loop through all the samples and calculate the percentage of overlapping sequences.
+
+```{r}
+df_overlap_tra <- data.frame("")
 
 for(j in levels(factor(binary_tra_longer$num_id))){
   subset1 <- binary_tra_longer %>% filter(num_id == j & value>0) %>% pull("aaSeqCDR3")
@@ -1798,38 +1847,48 @@ for(j in levels(factor(binary_tra_longer$num_id))){
   df <- as.data.frame(x = vector_overlap)
   colnames(df) <- j
   df
-  df_all4 <- cbind(df_all4, df)
+  df_overlap_tra <- cbind(df_overlap_tra, df)
 }
 
-df_all4 <- df_all4[,2:29]
-rownames(df_all4) <- colnames(df_all4)
+# We have the matrix of overlap percentages, which we will use further for plotting
+df_overlap_tra <- df_overlap_tra[,2:29]
+rownames(df_overlap_tra) <- colnames(df_overlap_tra)
 
-#write.csv(df_all4, "rep_overlap_tra.csv")
+#write.csv(df_overlap_tra, "rep_overlap_tra.csv")
 ```
 
+Now that we have the overlap matrix, we will plot the overlaps. First we will plot all the overlaps, i.e., the 28 samples that we have.
 
-```{r fig.width=15, fig.height=8}
-df24 <- df_all4
-df24[df24 == 1] <- 0
+```{r fig.width=14, fig.height=12}
 
-### plot dotplot of overlaps
+df_overlap_tra_for_plot <- df_overlap_tra
 
-df25 <- df24 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+# Replace ones on the diagonal with zeroes
+df_overlap_tra_for_plot[df_overlap_tra_for_plot == 1] <- 0
 
-g2 <- ggplot(df25, aes(id, factor(name, levels = rev(levels(factor(name)))))) + 
+# Plot a dotplot of overlaps with percentages
+
+df_overlap_tra_for_plot <- df_overlap_tra_for_plot %>% rownames_to_column("id") %>%  pivot_longer(-id)
+
+g2 <- ggplot(df_overlap_tra_for_plot, 
+             aes(id, 
+                 factor(name, levels = rev(levels(factor(name)))))) + 
   geom_point(aes(size = value*100, colour = value*100)) + 
   theme_bw() 
 
 g2 + scale_size_continuous(range=c(7,12)) +
   geom_text(aes(label = round(value*100, digits = 1))) + 
   scale_colour_gradient2(low = "lightskyblue", mid = "lightsteelblue2", high = "salmon") +
-  theme(axis.text.x = element_text(angle = 90)) 
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("") + ylab("")
 
 ```
 
-### Rozdelene na CD4 a CD8
+### CD4 
 
-```{r fig.width=7, fig.height=5}
+As the previous matrix is too large and we are mostly interested in overlaps between CD4 samples and between CD8 samples, we will now perform a separated analysis.
+ 
+```{r fig.width=8, fig.height=6}
 
 rep_overlap_tra <- read_csv("rep_overlap_tra.csv") %>% column_to_rownames("...1")
 
@@ -1862,7 +1921,9 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ```
 
-```{r fig.width=7, fig.height=5}
+### CD8 
+
+```{r fig.width=8, fig.height=6}
 rep_overlap_tra_cd8 <- rep_overlap_tra_cd8[rev(c(12:14,8:11,5:7,1:4)),rev(c(12:14,8:11,5:7,1:4))]
 
 levels_names <- rev(colnames(rep_overlap_tra_cd8))
@@ -1888,10 +1949,12 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ```
 
-### A la violin
+### Overlap plots for the main figure
+
+For the main figure we will create plots showing the percentage overlaps of WT samples with other samples. 
 
 ```{r fig.width=3, fig.height=3}
-violin_tra_cd4 <- rep_overlap_tra_cd4 %>% 
+overlap_wt_tra_cd4 <- rep_overlap_tra_cd4 %>% 
   rownames_to_column("sample1") %>% 
   pivot_longer(!sample1, names_to = "sample2") %>% 
   mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
@@ -1900,8 +1963,7 @@ violin_tra_cd4 <- rep_overlap_tra_cd4 %>%
   separate(sample2, into = c("Cell_type2","Organ2","Strain2","Exp2"), remove = F) %>% 
   filter(value<1)
 
-
-violin_tra_cd8 <- rep_overlap_tra_cd8 %>% 
+overlap_wt_tra_cd8 <- rep_overlap_tra_cd8 %>% 
   rownames_to_column("sample1") %>% 
   pivot_longer(!sample1, names_to = "sample2") %>% 
   mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
@@ -1912,8 +1974,8 @@ violin_tra_cd8 <- rep_overlap_tra_cd8 %>%
 
 ```
 
-```{r fig.width=3, fig.height=3}
-violin_tra_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+```{r fig.width=5, fig.height=4}
+overlap_wt_tra_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strain1 = paste(Organ1, Strain1), 
                           organ_strain2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
@@ -1938,8 +2000,9 @@ violin_tra_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
 
 ```
 
-```{r fig.width=3, fig.height=3}
-violin_tra_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+
+```{r fig.width=4, fig.height=3.5}
+overlap_wt_tra_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
   mutate(organ_strain1 = paste(Organ1, Strain1), 
                           organ_strain2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
@@ -1965,8 +2028,8 @@ violin_tra_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
 ```
 
 
-```{r fig.width=3, fig.height=3}
-violin_tra_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+```{r fig.width=5, fig.height=4}
+overlap_wt_tra_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strain1 = paste(Organ1, Strain1), 
                           organ_strain2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
@@ -1991,8 +2054,8 @@ violin_tra_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
 
 ```
 
-```{r fig.width=3, fig.height=3}
-violin_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+```{r fig.width=4, fig.height=4}
+overlap_wt_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
   mutate(organ_strain1 = paste(Organ1, Strain1), 
                           organ_strain2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
@@ -2017,9 +2080,9 @@ violin_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
 
 ```
 
-### TRB
+## TRB
 
-## Vsechny vzorky se vsema
+Let's focus on the TRB now. No NKT sequence removal is applied in this case. We will keep only the information whether the CDR3 sequence is present in the sample or not (i.e., we will keep only unique occurrences). We will loop through all the samples and calculate the percentage of overlapping sequences.
 
 ```{r}
 
@@ -2028,7 +2091,7 @@ binary_trb <- excel_count_table_trb %>%
 
 binary_trb_longer <- binary_trb %>% select(starts_with("CD"), aaSeqCDR3) %>% pivot_longer(!aaSeqCDR3, names_to = "num_id")
 
-df_all4 <- data.frame("")
+df_overlap_trb <- data.frame("")
 
 for(j in levels(factor(binary_trb_longer$num_id))){
   subset1 <- binary_trb_longer %>% filter(num_id == j & value>0) %>% pull("aaSeqCDR3")
@@ -2042,25 +2105,25 @@ for(j in levels(factor(binary_trb_longer$num_id))){
   df <- as.data.frame(x = vector_overlap)
   colnames(df) <- j
   df
-  df_all4 <- cbind(df_all4, df)
+  df_overlap_trb <- cbind(df_overlap_trb, df)
 }
 
-df_all4 <- df_all4[,2:29]
-rownames(df_all4) <- colnames(df_all4)
+df_overlap_trb <- df_overlap_trb[,2:29]
+rownames(df_overlap_trb) <- colnames(df_overlap_trb)
 
-#write.csv(df_all4, "rep_overlap_trb.csv")
+#write.csv(df_overlap_trb, "rep_overlap_trb.csv")
 ```
 
 
-```{r fig.width=30, fig.height=25}
-df24 <- df_all4
-df24[df24 == 1] <- 0
+```{r fig.width=14, fig.height=12}
+df_overlap_trb_for_plot <- df_overlap_trb
+df_overlap_trb_for_plot[df_overlap_trb_for_plot == 1] <- 0
 
 ### plot dotplot of overlaps
 
-df25 <- df24 %>% rownames_to_column("id") %>%  pivot_longer(-id)
+df_overlap_trb_for_plot <- df_overlap_trb_for_plot %>% rownames_to_column("id") %>%  pivot_longer(-id)
 
-g2 <- ggplot(df25, aes(id, factor(name, levels = rev(levels(factor(name)))))) + 
+g2 <- ggplot(df_overlap_trb_for_plot, aes(id, factor(name, levels = rev(levels(factor(name)))))) + 
   geom_point(aes(size = value*100, colour = value*100)) + 
   theme_bw() 
 
@@ -2072,9 +2135,9 @@ g2 + scale_size_continuous(range=c(7,12)) +
 
 ```
 
-### Rozdelene na CD4 a CD8
+### CD4
 
-```{r fig.width=7, fig.height=5}
+```{r fig.width=8, fig.height=6}
 
 rep_overlap_trb <- read_csv("rep_overlap_trb.csv") %>% column_to_rownames("...1")
 
@@ -2107,7 +2170,9 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ```
 
-```{r fig.width=7, fig.height=5}
+### CD8
+
+```{r fig.width=8, fig.height=6}
 rep_overlap_trb_cd8 <- rep_overlap_trb_cd8[rev(c(12:14,8:11,5:7,1:4)),rev(c(12:14,8:11,5:7,1:4))]
 
 levels_names <- rev(colnames(rep_overlap_trb_cd8))
@@ -2133,11 +2198,13 @@ g2 + scale_size_continuous(range=c(5,9)) +
 
 ```
 
-### A la violin
+### Overlap plots for the main figure
+
+For the main figure we will create plots showing the percentage overlaps of WT samples with other samples. 
 
 ```{r}
 
-violin_trb_cd4 <- rep_overlap_trb_cd4 %>% 
+overlap_wt_trb_cd4 <- rep_overlap_trb_cd4 %>% 
   rownames_to_column("sample1") %>% 
   pivot_longer(!sample1, names_to = "sample2") %>% 
   mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
@@ -2146,7 +2213,7 @@ violin_trb_cd4 <- rep_overlap_trb_cd4 %>%
   separate(sample2, into = c("Cell_type2","Organ2","Strain2","Exp2"), remove = F) %>% 
   filter(value<1)
 
-violin_trb_cd8 <- rep_overlap_trb_cd8 %>% 
+overlap_wt_trb_cd8 <- rep_overlap_trb_cd8 %>% 
   rownames_to_column("sample1") %>% 
   pivot_longer(!sample1, names_to = "sample2") %>% 
   mutate(sample2 = stringr::str_replace_all(sample2, pattern = "Lymph nodes", replacement = "LN"))  %>% 
@@ -2156,8 +2223,8 @@ violin_trb_cd8 <- rep_overlap_trb_cd8 %>%
   filter(value<1)
 ```
 
-```{r fig.width=5, fig.height=5}
-violin_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+```{r fig.width=5, fig.height=4}
+overlap_wt_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
@@ -2182,8 +2249,8 @@ violin_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
 
 ```
 
-```{r fig.width=4, fig.height=3}
-violin_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+```{r fig.width=4, fig.height=3.5}
+overlap_wt_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
@@ -2208,8 +2275,8 @@ violin_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
 
 ```
 
-```{r fig.width=5, fig.height=5}
-violin_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+```{r fig.width=5, fig.height=4}
+overlap_wt_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
@@ -2234,8 +2301,8 @@ violin_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
 
 ```
 
-```{r fig.width=4, fig.height=3}
-violin_trb_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+```{r fig.width=4, fig.height=3.5}
+overlap_wt_trb_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
   mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
