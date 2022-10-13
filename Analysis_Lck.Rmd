@@ -50,17 +50,16 @@ This document describes the analysis of TCR repertoires for the manuscript *"Uni
 * processing fastq files using the recommended [pRESTO workflow](https://international.neb.com/-/media/nebus/files/nebnext-chart-pdfs/nebnext-immune-sequencing-data-analysis-workflow-mouse.pdf?rev=7f21b23a3ce444e3bc4dcd57282402ba&hash=C0AE101CBA6C31B2A897A207D9EA6A4D) on Galaxy with default parameters
 * aligning processed fastq files using [MiXCR](https://mixcr.readthedocs.io/en/develop/)
 
-Raw data are deposited in the Sequence Read Archive (PRJNA872031). Processed files can be downloaded [from Zenodo]( ############# ). The Zenodo archive contains the following files, which are needed to run this script:
+Raw data are deposited in the [Sequence Read Archive (PRJNA872031)](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA872031). Processed files can be downloaded [from Zenodo](https://zenodo.org/record/7188457). The Zenodo archive contains the following files, which are needed to run this script:
 
 * merged outputs from MiXCR `merged_TCR_repertoires.csv`
 * metadata file `metadata_Lck.csv`
-* count tables with raw counts of CDR3 TRA and TRB sequences in each sample `count_table_tra.csv`, `count_table_trb.csv`
 * TRA and TRB repertoires prepared for processing with the Immunarch package `immdata_tra.rds`, `immdata_trb.rds`
 
 Let's read the required files:
 
 ```{r}
-#
+
 merged_repertoires <- read.csv("merged_TCR_repertoires.csv")
 md <- read.csv("metadata_Lck.csv")
 
@@ -1995,6 +1994,17 @@ overlap_wt_tra_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,0.35)) + xlab("")
 
+
+# source data
+write.csv(overlap_wt_tra_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd4_tra_thymus.csv",
+  row.names = F)
+  
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_thy.png", width = 9.5, height = 9.5,  units = "cm")
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_thy.eps", width = 9.5, height = 9.5,  units = "cm")
 
@@ -2021,6 +2031,16 @@ overlap_wt_tra_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
   theme(axis.text.x = element_text(angle = 90)) + 
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,0.35)) + xlab("")
+
+# source data
+write.csv(overlap_wt_tra_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd4_tra_ln.csv",
+  row.names = F)
 
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_LN.png", width = 8, height = 8,  units = "cm")
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_tra_LN.eps", width = 8, height = 8,  units = "cm")
@@ -2049,6 +2069,16 @@ overlap_wt_tra_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,0.35)) + xlab("")
 
+# source data
+write.csv(overlap_wt_tra_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd8_tra_thymus.csv",
+  row.names = F)
+
 #ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_thy.png", width = 9.5, height = 9.5,  units = "cm")
 #ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_thy.eps", width = 9.5, height = 9.5,  units = "cm")
 
@@ -2075,6 +2105,16 @@ overlap_wt_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,0.35)) + xlab("")
 
+# source data
+write.csv(overlap_wt_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strain1 = paste(Organ1, Strain1), 
+                          organ_strain2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strain1, organ_strain2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd8_tra_ln.csv",
+  row.names = F)
+
 #ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_LN.png", width = 8, height = 8, units = "cm")
 #ggsave("./final_fig/overlaps/rep_overlap_cd8_tra_LN.eps", width = 8, height = 8, units = "cm")
 
@@ -2082,7 +2122,7 @@ overlap_wt_tra_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
 
 ## TRB
 
-Let's focus on the TRB now. No NKT sequence removal is applied in this case. We will keep only the information whether the CDR3 sequence is present in the sample or not (i.e., we will keep only unique occurrences). We will loop through all the samples and calculate the percentage of overlapping sequences.
+Let's focus on the TRB now. The analysis follows the same logic as in case of TRA. No NKT sequence removal is applied in this case. We will keep only the information whether the CDR3 sequence is present in the sample or not (i.e., we will keep only unique occurrences). We will loop through all the samples and calculate the percentage of overlapping sequences.
 
 ```{r}
 
@@ -2224,58 +2264,6 @@ overlap_wt_trb_cd8 <- rep_overlap_trb_cd8 %>%
 ```
 
 ```{r fig.width=5, fig.height=4}
-overlap_wt_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
-  mutate(organ_strbin1 = paste(Organ1, Strain1), 
-                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
-  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
-  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
-  ggplot(aes(x = comparison, y = value)) +
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
-  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
-  ggtitle("CD8 TRB Thymus") +
-  stat_summary(fun = "mean",
-               geom = "crossbar", 
-               width = 0.5,
-               colour = "black") +
-  ylab("% repertoire overlap") + 
-  theme_classic() + 
-  ggtheme() + 
-  theme(axis.text.x = element_text(angle = 90)) + 
-  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
-  ylim(c(0,0.25)) + xlab("")
-
-#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_thy.png", width = 9.5, height = 9.5,  units = "cm")
-#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_thy.eps", width = 9.5, height = 9.5,  units = "cm")
-
-```
-
-```{r fig.width=4, fig.height=3.5}
-overlap_wt_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
-  mutate(organ_strbin1 = paste(Organ1, Strain1), 
-                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
-  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
-  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
-  ggplot(aes(x = comparison, y = value)) +
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
-  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
-  ggtitle("CD8 TRB LN") +
-  stat_summary(fun = "mean",
-               geom = "crossbar", 
-               width = 0.5,
-               colour = "black") +
-  ylab("% repertoire overlap") + 
-  theme_classic() + 
-  ggtheme() + 
-  theme(axis.text.x = element_text(angle = 90)) + 
-  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
-  ylim(c(0,0.25)) + xlab("")
-
-#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_LN.png", width = 8, height = 8,  units = "cm")
-#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_LN.eps", width = 8, height = 8,  units = "cm")
-
-```
-
-```{r fig.width=5, fig.height=4}
 overlap_wt_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
   mutate(organ_strbin1 = paste(Organ1, Strain1), 
                           organ_strbin2 = paste(Organ2, Strain2)) %>% 
@@ -2295,6 +2283,16 @@ overlap_wt_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>%
   theme(axis.text.x = element_text(angle = 90)) + 
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,0.20)) + xlab("")
+
+# source data
+write.csv(overlap_wt_trb_cd4 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd4_trb_thymus.csv",
+  row.names = F)
 
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_thy.png", width = 9.5, height = 9.5,  units = "cm")
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_thy.eps", width = 9.5, height = 9.5,  units = "cm")
@@ -2322,10 +2320,94 @@ overlap_wt_trb_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>%
   scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
   ylim(c(0,0.20)) + xlab("")
 
+# source data
+write.csv(overlap_wt_trb_cd4 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd4_trb_ln.csv",
+  row.names = F)
+
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_LN.png", width = 8, height = 8,  units = "cm")
 #ggsave("./final_fig/overlaps/rep_overlap_cd4_trb_LN.eps", width = 8, height = 8,  units = "cm")
 
 ```
+
+
+```{r fig.width=5, fig.height=4}
+overlap_wt_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD8 TRB Thymus") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.25)) + xlab("")
+
+# source data
+write.csv(overlap_wt_trb_cd8 %>% filter(Organ1 == "Thymus" & Organ2 == "Thymus") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("Thymus WT - Thymus WT", "Thymus CA - Thymus WT", "Thymus CAKR - Thymus WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd8_trb_thymus.csv",
+  row.names = F)
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_thy.png", width = 9.5, height = 9.5,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_thy.eps", width = 9.5, height = 9.5,  units = "cm")
+
+```
+
+```{r fig.width=4, fig.height=3.5}
+overlap_wt_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  ggplot(aes(x = comparison, y = value)) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0) + 
+  geom_jitter(position=position_jitter(0.2), size = 2, aes(color = comparison)) +
+  ggtitle("CD8 TRB LN") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.5,
+               colour = "black") +
+  ylab("% repertoire overlap") + 
+  theme_classic() + 
+  ggtheme() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_color_manual(values = c("dodgerblue","indianred2","gray40")) + 
+  ylim(c(0,0.25)) + xlab("")
+
+# source data
+write.csv(overlap_wt_trb_cd8 %>% filter(Organ1 == "LN" & Organ2 == "LN") %>% 
+  mutate(organ_strbin1 = paste(Organ1, Strain1), 
+                          organ_strbin2 = paste(Organ2, Strain2)) %>% 
+  mutate(comparison = paste(organ_strbin1, organ_strbin2, sep = " - ")) %>% 
+  filter(comparison %in% c("LN WT - LN WT", "LN CA - LN WT", "LN CAKR - LN WT")) %>% 
+  select(sample1, sample2, comparison, value), 
+  file = "source_data/rep_overlap_cd8_trb_ln.csv",
+  row.names = F)
+
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_LN.png", width = 8, height = 8,  units = "cm")
+#ggsave("./final_fig/overlaps/rep_overlap_cd8_trb_LN.eps", width = 8, height = 8,  units = "cm")
+
+```
+
 
 # SessionInfo
 
